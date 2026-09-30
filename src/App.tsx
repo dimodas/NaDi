@@ -3,6 +3,7 @@ import { LandingPage } from "./components/LandingPage";
 import { ProgramPage } from "./components/ProgramPage";
 import { LoginPage } from "./components/LoginPage";
 import { MobileLoginPage } from "./components/LoginPage/MobileLoginPage";
+import { TentangKami } from "./components/TentangKami";
 import { OwnerDashboard } from "./components/OwnerDashboard";
 import { StaffDashboard } from "./components/StaffDashboard";
 import { CustomerOrderApp } from "./components/CustomerOrderApp";
@@ -58,6 +59,7 @@ function App() {
         <LandingPage />
         <ProgramPage />
         {!isMobile && <LoginPage />}
+        <TentangKami />
       </div>
       {isMobile && <MobileLoginPage />}
     </>

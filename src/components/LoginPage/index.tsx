@@ -42,9 +42,9 @@ export const LoginPage = () => {
   };
 
   const handleAboutClick = () => {
-    document.getElementById("about-niaga-digital")?.scrollIntoView({
+    document.getElementById("tentang-kami")?.scrollIntoView({
       behavior: "smooth",
-      block: "center",
+      block: "start",
     });
   };
 

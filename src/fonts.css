@@ -1,0 +1,35 @@
+/* Alias font: menghubungkan nama font gaya Figma yang dipakai di seluruh
+   kode (mis. 'Montserrat-Bold') ke file font sungguhan, supaya benar-benar
+   tampil (sebelumnya diam-diam jatuh ke font cadangan Helvetica). */
+
+@font-face {
+  font-family: "Montserrat-Regular";
+  src: url("https://cdn.jsdelivr.net/npm/@fontsource/montserrat@latest/files/montserrat-latin-400-normal.woff2")
+    format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat-SemiBold";
+  src: url("https://cdn.jsdelivr.net/npm/@fontsource/montserrat@latest/files/montserrat-latin-600-normal.woff2")
+    format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat-Bold";
+  src: url("https://cdn.jsdelivr.net/npm/@fontsource/montserrat@latest/files/montserrat-latin-700-normal.woff2")
+    format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "MonteCarlo-Regular";
+  src: url("https://cdn.jsdelivr.net/npm/@fontsource/montecarlo@latest/files/montecarlo-latin-400-normal.woff2")
+    format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
