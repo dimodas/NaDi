@@ -4,6 +4,7 @@ import { ProgramPage } from "./components/ProgramPage";
 import { LoginPage } from "./components/LoginPage";
 import { MobileLoginPage } from "./components/LoginPage/MobileLoginPage";
 import { TentangKami } from "./components/TentangKami";
+import { Kontak } from "./components/Kontak";
 import { OwnerDashboard } from "./components/OwnerDashboard";
 import { StaffDashboard } from "./components/StaffDashboard";
 import { CustomerOrderApp } from "./components/CustomerOrderApp";
@@ -29,10 +30,11 @@ function App() {
     return () => window.removeEventListener("resize", updateZoom);
   }, []);
 
-  // Link dari QR code berbentuk: https://situs-anda.com/?menu=<umkm_id>
   const params = new URLSearchParams(window.location.search);
   const umkmIdFromQr = params.get("menu");
+  const isLoginTab = params.get("login") === "1";
 
+  // Link dari QR code berbentuk: https://situs-anda.com/?menu=<umkm_id>
   if (umkmIdFromQr) {
     return <CustomerOrderApp umkmId={umkmIdFromQr} />;
   }
@@ -53,16 +55,25 @@ function App() {
     return <StaffDashboard profile={profile} />;
   }
 
-  return (
-    <>
+  // Tombol "Daftar/Masuk" membuka tab baru ke ?login=1, berisi
+  // halaman Login saja (tanpa Landing/Program di atasnya).
+  if (isLoginTab) {
+    return isMobile ? (
+      <MobileLoginPage />
+    ) : (
       <div style={{ zoom }}>
-        <LandingPage />
-        <ProgramPage />
-        {!isMobile && <LoginPage />}
-        <TentangKami />
+        <LoginPage />
       </div>
-      {isMobile && <MobileLoginPage />}
-    </>
+    );
+  }
+
+  return (
+    <div style={{ zoom }}>
+      <LandingPage />
+      <ProgramPage />
+      <TentangKami />
+      <Kontak />
+    </div>
   );
 }
 

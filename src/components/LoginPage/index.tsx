@@ -42,10 +42,7 @@ export const LoginPage = () => {
   };
 
   const handleAboutClick = () => {
-    document.getElementById("tentang-kami")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    window.location.href = "/#tentang-kami";
   };
 
   return (

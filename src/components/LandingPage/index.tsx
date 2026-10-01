@@ -5,17 +5,10 @@ import KONTEN131 from "./KONTEN-1-3-1.png";
 
 export const LandingPage = () => {
   const [scrolled, setScrolled] = useState(false);
-  const [hideNavbar, setHideNavbar] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 600);
-
-      const loginSection = document.getElementById("login-page");
-      if (loginSection) {
-        const loginTop = loginSection.offsetTop;
-        setHideNavbar(window.scrollY + 80 >= loginTop);
-      }
     };
 
     window.addEventListener("scroll", handleScroll);
@@ -27,9 +20,7 @@ export const LandingPage = () => {
     <main className="relative min-h-[1024px] min-w-[1440px] w-full overflow-hidden bg-[linear-gradient(180deg,rgba(237,142,18,1)_0%,rgba(197,80,15,1)_100%)]">
       <header
         aria-label="Navigasi utama"
-        className={`fixed top-0 left-0 z-50 h-[152px] w-full transition-all duration-300 ease-in-out ${
-          hideNavbar ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
-        } ${
+        className={`fixed top-0 left-0 z-50 h-[152px] w-full transition-colors duration-300 ease-in-out ${
           scrolled
             ? "bg-[linear-gradient(180deg,rgba(237,142,18,1)_0%,rgba(197,80,15,1)_100%)] shadow-[0px_4px_10px_#00000040]"
             : "bg-transparent"
@@ -48,20 +39,30 @@ export const LandingPage = () => {
             />
           </a>
           <nav aria-label="Menu utama">
+            <div className="absolute left-[520px] top-[51px] flex items-center gap-10">
+              <a
+                href="#program"
+                className="whitespace-nowrap text-center font-bold text-3xl leading-[normal] tracking-[0] text-white [font-family:'Montserrat-Bold',Helvetica] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#e68b13]"
+              >
+                Program
+              </a>
+              <a
+                href="#tentang-kami"
+                className="whitespace-nowrap text-center font-bold text-3xl leading-[normal] tracking-[0] text-white [font-family:'Montserrat-Bold',Helvetica] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#e68b13]"
+              >
+                Tentang Kami
+              </a>
+              <a
+                href="#kontak"
+                className="whitespace-nowrap text-center font-bold text-3xl leading-[normal] tracking-[0] text-white [font-family:'Montserrat-Bold',Helvetica] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#e68b13]"
+              >
+                Kontak
+              </a>
+            </div>
             <a
-              href="#program"
-              className="absolute left-[631px] top-[51px] w-[177px] text-center font-bold text-3xl leading-[normal] tracking-[0] text-white [font-family:'Montserrat-Bold',Helvetica] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#e68b13]"
-            >
-              Program
-            </a>
-            <a
-              href="mailto:kontak@nadi.id"
-              className="absolute left-[886px] top-[51px] w-36 text-center font-bold text-3xl leading-[normal] tracking-[0] text-white [font-family:'Montserrat-Bold',Helvetica] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#e68b13]"
-            >
-              Kontak
-            </a>
-            <a
-              href="#login-page"
+              href="?login=1"
+              target="_blank"
+              rel="noopener noreferrer"
               className="absolute left-[1115px] top-12 flex h-11 w-[230px] items-center justify-center rounded-[20px] bg-white font-bold text-[28px] leading-[normal] tracking-[0] text-[#fe972f] [font-family:'Montserrat-Bold',Helvetica] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#e68b13]"
             >
               Daftar/Masuk
