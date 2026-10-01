@@ -89,12 +89,12 @@ export const LandingPage = () => {
           </span>
         </a>
         <img
-          className="absolute left-[579px] top-[219px] h-[736px] w-[754px] aspect-[1] object-cover"
+          className="absolute left-[700px] top-[219px] h-[600px] w-[620px] aspect-[1] object-cover rotate-[-8deg]"
           alt="Ilustrasi produk kopi NaDi"
           src={KONTEN111}
         />
         <img
-          className="absolute left-[729px] top-[239px] h-[734px] w-[711px] aspect-[1] object-cover"
+          className="absolute left-[840px] top-[239px] h-[600px] w-[620px] aspect-[1] object-cover rotate-[8deg]"
           alt="Ilustrasi minuman kopi"
           src={KONTEN131}
         />
