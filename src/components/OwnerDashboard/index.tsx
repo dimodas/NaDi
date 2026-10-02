@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -28,6 +29,8 @@ type Report = {
   jumlahPesanan: number;
   produkTerlaris: { nama_produk: string; total_terjual: number }[];
   dailyRevenue: { tanggal: string; total: number }[];
+  incomeSources: { sumber: string; total: number }[];
+  expenseByCategory: { kategori: string; total: number }[];
   transaksiList: { id: string; kode_pesanan: string; tanggal: string; jumlah: number }[];
 };
 
@@ -114,37 +117,59 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
   const fetchReport = async () => {
     setLoadingReport(true);
 
-    const [{ data: transaksi }, { count: jumlahPesanan }, { data: itemTerjual }] =
-      await Promise.all([
-        supabase
-          .from("transactions")
-          .select("id, jumlah_bayar, paid_at, orders!inner(umkm_id, kode_pesanan)")
-          .eq("orders.umkm_id", profile.umkm_id)
-          .eq("status_bayar", "lunas")
-          .order("paid_at", { ascending: false }),
-        supabase
-          .from("orders")
-          .select("id", { count: "exact", head: true })
-          .eq("umkm_id", profile.umkm_id),
-        supabase
-          .from("order_items")
-          .select("jumlah, products!inner(nama_produk, umkm_id)")
-          .eq("products.umkm_id", profile.umkm_id),
-      ]);
+    const [
+      { data: transaksi },
+      { count: jumlahPesanan },
+      { data: itemTerjual },
+      { data: pemasukanManual, error: errorPemasukanManual },
+      { data: pengeluaran, error: errorPengeluaran },
+    ] = await Promise.all([
+      supabase
+        .from("transactions")
+        .select("id, jumlah_bayar, paid_at, orders!inner(umkm_id, kode_pesanan)")
+        .eq("orders.umkm_id", profile.umkm_id)
+        .eq("status_bayar", "lunas")
+        .order("paid_at", { ascending: false }),
+      supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("umkm_id", profile.umkm_id),
+      supabase
+        .from("order_items")
+        .select("jumlah, products!inner(nama_produk, umkm_id)")
+        .eq("products.umkm_id", profile.umkm_id),
+      supabase
+        .from("pemasukan_manual")
+        .select("id, kategori, deskripsi, jumlah, tanggal")
+        .eq("umkm_id", profile.umkm_id),
+      supabase
+        .from("pengeluaran")
+        .select("id, kategori, jumlah, tanggal")
+        .eq("umkm_id", profile.umkm_id),
+    ]);
 
-    const totalPendapatan = (transaksi ?? []).reduce(
-      (sum, t) => sum + Number(t.jumlah_bayar),
-      0
-    );
+    if (errorPemasukanManual) {
+      console.error("Gagal memuat pemasukan manual untuk laporan:", errorPemasukanManual.message);
+    }
+    if (errorPengeluaran) {
+      console.error("Gagal memuat pengeluaran untuk laporan:", errorPengeluaran.message);
+    }
 
     const transaksiList = (transaksi ?? []).map((t: any) => ({
       id: t.id as string,
       kode_pesanan: t.orders.kode_pesanan as string,
-      tanggal: t.paid_at as string,
+      tanggal: (t.paid_at ?? t.orders.created_at) as string,
       jumlah: Number(t.jumlah_bayar),
     }));
 
-    // Tren pendapatan 14 hari terakhir (tanggal tanpa transaksi tetap tampil, nilainya 0)
+    const totalPendapatanNaDi = transaksiList.reduce((sum, t) => sum + t.jumlah, 0);
+    const totalPendapatanManual = (pemasukanManual ?? []).reduce(
+      (sum, p) => sum + Number(p.jumlah),
+      0
+    );
+    const totalPendapatan = totalPendapatanNaDi + totalPendapatanManual;
+
+    // Tren pendapatan menggabungkan transaksi NaDi dan pemasukan manual.
     const hariMap = new Map<string, number>();
     for (let i = 13; i >= 0; i -= 1) {
       const tgl = new Date();
@@ -152,19 +177,50 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
       const kunci = tgl.toISOString().slice(0, 10);
       hariMap.set(kunci, 0);
     }
-    for (const t of transaksiList) {
-      const kunci = t.tanggal?.slice(0, 10);
+    const semuaPemasukan = [
+      ...transaksiList.map((t) => ({ tanggal: t.tanggal, jumlah: t.jumlah })),
+      ...(pemasukanManual ?? []).map((p) => ({ tanggal: p.tanggal, jumlah: Number(p.jumlah) })),
+    ];
+    for (const pemasukan of semuaPemasukan) {
+      const kunci = pemasukan.tanggal?.slice(0, 10);
       if (kunci && hariMap.has(kunci)) {
-        hariMap.set(kunci, (hariMap.get(kunci) ?? 0) + t.jumlah);
+        hariMap.set(kunci, (hariMap.get(kunci) ?? 0) + pemasukan.jumlah);
       }
     }
     const dailyRevenue = Array.from(hariMap.entries()).map(([kunci, total]) => ({
-      tanggal: new Date(kunci).toLocaleDateString("id-ID", {
+      tanggal: new Date(`${kunci}T12:00:00`).toLocaleDateString("id-ID", {
         day: "2-digit",
         month: "short",
       }),
       total,
     }));
+
+    // Perbandingan sumber pemasukan: transaksi NaDi dan pemasukan manual per kategori.
+    const sumberMap = new Map<string, number>();
+    sumberMap.set("Pesanan NaDi", totalPendapatanNaDi);
+    for (const p of pemasukanManual ?? []) {
+      const kategoriPemasukan = p.kategori || "Pendapatan lainnya";
+      sumberMap.set(
+        kategoriPemasukan,
+        (sumberMap.get(kategoriPemasukan) ?? 0) + Number(p.jumlah)
+      );
+    }
+    const incomeSources = Array.from(sumberMap.entries()).map(([sumber, total]) => ({
+      sumber,
+      total,
+    }));
+
+    // Total pengeluaran dikelompokkan berdasarkan kategori.
+    const pengeluaranMap = new Map<string, number>();
+    for (const p of pengeluaran ?? []) {
+      pengeluaranMap.set(
+        p.kategori,
+        (pengeluaranMap.get(p.kategori) ?? 0) + Number(p.jumlah)
+      );
+    }
+    const expenseByCategory = Array.from(pengeluaranMap.entries())
+      .map(([kategori, total]) => ({ kategori, total }))
+      .sort((a, b) => b.total - a.total);
 
     const terjualMap = new Map<string, number>();
     for (const item of itemTerjual ?? []) {
@@ -181,6 +237,8 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
       jumlahPesanan: jumlahPesanan ?? 0,
       produkTerlaris,
       dailyRevenue,
+      incomeSources,
+      expenseByCategory,
       transaksiList,
     });
     setLoadingReport(false);
@@ -194,7 +252,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
   };
 
   useEffect(() => {
-    if (activeTab === "laporan" && !report) {
+    if (activeTab === "laporan") {
       fetchReport();
     }
     if (activeTab === "pembukuan") {
@@ -1097,7 +1155,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                       {formatRupiah(report.totalPendapatan)}
                     </p>
                     <p className="text-sm text-[#9a8a78]">
-                      Total pendapatan (transaksi lunas)
+                      Total pendapatan (NaDi + pemasukan manual)
                     </p>
                   </div>
                   <div className="rounded-xl border border-[#f0d9bd] bg-white p-5">
@@ -1132,6 +1190,76 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                         <Bar dataKey="total" fill="#fe972f" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="mb-6 grid gap-6 lg:grid-cols-2">
+                  <div className="rounded-xl border border-[#f0d9bd] bg-white p-5">
+                    <h2 className="mb-3 text-base font-bold text-[#e66307]">
+                      Pemasukan Berdasarkan Sumber
+                    </h2>
+                    {report.incomeSources.length === 0 ? (
+                      <p className="text-sm text-[#9a8a78]">Belum ada data pemasukan.</p>
+                    ) : (
+                      <div className="h-64 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={report.incomeSources} margin={{ bottom: 8 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0d9bd" />
+                            <XAxis
+                              dataKey="sumber"
+                              tick={{ fontSize: 10, fill: "#9a8a78" }}
+                              interval={0}
+                              angle={-12}
+                              textAnchor="end"
+                              height={55}
+                            />
+                            <YAxis
+                              tick={{ fontSize: 11, fill: "#9a8a78" }}
+                              tickFormatter={(v) => `${Math.round(Number(v) / 1000)}rb`}
+                              width={42}
+                            />
+                            <Tooltip
+                              formatter={(value) => formatRupiah(Number(value))}
+                              contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                            />
+                            <Bar dataKey="total" name="Total pemasukan" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-[#f0d9bd] bg-white p-5">
+                    <h2 className="mb-3 text-base font-bold text-[#e66307]">
+                      Pengeluaran Berdasarkan Kategori
+                    </h2>
+                    {report.expenseByCategory.length === 0 ? (
+                      <p className="text-sm text-[#9a8a78]">Belum ada data pengeluaran.</p>
+                    ) : (
+                      <div className="h-64 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={report.expenseByCategory} layout="vertical" margin={{ left: 8 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0d9bd" />
+                            <XAxis
+                              type="number"
+                              tick={{ fontSize: 11, fill: "#9a8a78" }}
+                              tickFormatter={(v) => `${Math.round(Number(v) / 1000)}rb`}
+                            />
+                            <YAxis
+                              type="category"
+                              dataKey="kategori"
+                              tick={{ fontSize: 11, fill: "#9a8a78" }}
+                              width={90}
+                            />
+                            <Tooltip
+                              formatter={(value) => formatRupiah(Number(value))}
+                              contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                            />
+                            <Bar dataKey="total" name="Total pengeluaran" fill="#ef4444" radius={[0, 4, 4, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
                   </div>
                 </div>
 
