@@ -38,6 +38,7 @@ type LedgerEntry = {
   keterangan: string;
   jumlah: number;
   tipe: "masuk" | "keluar";
+  sumber: "transaksi" | "pengeluaran" | "pemasukan_manual";
 };
 
 export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
@@ -63,7 +64,9 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
   const [sampaiTanggal, setSampaiTanggal] = useState(
     new Date().toISOString().slice(0, 10)
   );
+  const [tipePembukuan, setTipePembukuan] = useState<"masuk" | "keluar">("keluar");
   const [kategoriPengeluaran, setKategoriPengeluaran] = useState("Bahan Baku");
+  const [kategoriPemasukan, setKategoriPemasukan] = useState("Penjualan di luar NaDi");
   const [jumlahPengeluaran, setJumlahPengeluaran] = useState("");
   const [deskripsiPengeluaran, setDeskripsiPengeluaran] = useState("");
   const [tanggalPengeluaran, setTanggalPengeluaran] = useState(
@@ -203,25 +206,48 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
   const fetchLedger = async () => {
     setLoadingLedger(true);
 
-    const [{ data: pemasukan }, { data: pengeluaran }] = await Promise.all([
+    const [
+      { data: pemasukanPesanan },
+      { data: pemasukanManual, error: errorPemasukanManual },
+      { data: pengeluaran },
+    ] = await Promise.all([
       supabase
         .from("transactions")
         .select("id, jumlah_bayar, paid_at, orders!inner(umkm_id, kode_pesanan, created_at)")
         .eq("orders.umkm_id", profile.umkm_id)
         .eq("status_bayar", "lunas"),
       supabase
+        .from("pemasukan_manual")
+        .select("id, kategori, deskripsi, jumlah, tanggal")
+        .eq("umkm_id", profile.umkm_id),
+      supabase
         .from("pengeluaran")
         .select("id, kategori, deskripsi, jumlah, tanggal")
         .eq("umkm_id", profile.umkm_id),
     ]);
 
-    const entriMasuk: LedgerEntry[] = (pemasukan ?? []).map((t: any) => ({
-      id: `masuk-${t.id}`,
+    if (errorPemasukanManual) {
+      console.error("Gagal memuat pemasukan manual:", errorPemasukanManual.message);
+    }
+
+    const entriPesanan: LedgerEntry[] = (pemasukanPesanan ?? []).map((t: any) => ({
+      id: `transaksi-${t.id}`,
       sourceId: t.id,
       tanggal: t.paid_at ?? t.orders.created_at,
       keterangan: `Pesanan ${t.orders.kode_pesanan}`,
       jumlah: Number(t.jumlah_bayar),
       tipe: "masuk",
+      sumber: "transaksi",
+    }));
+
+    const entriMasukManual: LedgerEntry[] = (pemasukanManual ?? []).map((p) => ({
+      id: `masuk-manual-${p.id}`,
+      sourceId: p.id,
+      tanggal: p.tanggal,
+      keterangan: p.deskripsi ? `${p.kategori}: ${p.deskripsi}` : p.kategori,
+      jumlah: Number(p.jumlah),
+      tipe: "masuk",
+      sumber: "pemasukan_manual",
     }));
 
     const entriKeluar: LedgerEntry[] = (pengeluaran ?? []).map((p) => ({
@@ -231,9 +257,10 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
       keterangan: p.deskripsi ? `${p.kategori}: ${p.deskripsi}` : p.kategori,
       jumlah: Number(p.jumlah),
       tipe: "keluar",
+      sumber: "pengeluaran",
     }));
 
-    const gabungan = [...entriMasuk, ...entriKeluar].sort(
+    const gabungan = [...entriPesanan, ...entriMasukManual, ...entriKeluar].sort(
       (a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
     );
 
@@ -241,24 +268,27 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
     setLoadingLedger(false);
   };
 
-  const handleAddPengeluaran = async (event: FormEvent) => {
+  const handleAddPembukuan = async (event: FormEvent) => {
     event.preventDefault();
     setPengeluaranError("");
 
     const jumlahNumber = Number(jumlahPengeluaran);
     if (!jumlahPengeluaran.trim() || Number.isNaN(jumlahNumber) || jumlahNumber <= 0) {
-      setPengeluaranError("Jumlah pengeluaran harus diisi dengan angka.");
+      setPengeluaranError("Jumlah harus diisi dengan angka yang lebih besar dari 0.");
       return;
     }
 
     setIsSubmittingPengeluaran(true);
-    const { error } = await supabase.from("pengeluaran").insert({
-      umkm_id: profile.umkm_id,
-      kategori: kategoriPengeluaran,
-      deskripsi: deskripsiPengeluaran.trim() || null,
-      jumlah: jumlahNumber,
-      tanggal: tanggalPengeluaran,
-    });
+    const isPemasukan = tipePembukuan === "masuk";
+    const { error } = await supabase
+      .from(isPemasukan ? "pemasukan_manual" : "pengeluaran")
+      .insert({
+        umkm_id: profile.umkm_id,
+        kategori: isPemasukan ? kategoriPemasukan : kategoriPengeluaran,
+        deskripsi: deskripsiPengeluaran.trim() || null,
+        jumlah: jumlahNumber,
+        tanggal: tanggalPengeluaran,
+      });
 
     if (error) {
       setPengeluaranError("Gagal menyimpan: " + error.message);
@@ -269,13 +299,33 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
     setJumlahPengeluaran("");
     setDeskripsiPengeluaran("");
     setIsSubmittingPengeluaran(false);
-    fetchLedger();
+    await fetchLedger();
   };
 
   const handleDeletePengeluaran = async (id: string) => {
     if (!confirm("Hapus catatan pengeluaran ini?")) return;
     await supabase.from("pengeluaran").delete().eq("id", id);
     fetchLedger();
+  };
+
+  const handleDeletePemasukanManual = async (id: string) => {
+    if (!confirm("Hapus catatan pemasukan manual ini?")) return;
+    const { error } = await supabase.from("pemasukan_manual").delete().eq("id", id);
+    if (error) {
+      alert("Gagal menghapus pemasukan: " + error.message);
+      return;
+    }
+    await fetchLedger();
+  };
+
+  const handleDeleteLedgerEntry = async (entry: LedgerEntry) => {
+    if (entry.sumber === "transaksi") {
+      await handleDeleteTransaction(entry.sourceId);
+    } else if (entry.sumber === "pemasukan_manual") {
+      await handleDeletePemasukanManual(entry.sourceId);
+    } else {
+      await handleDeletePengeluaran(entry.sourceId);
+    }
   };
 
   const handleFotoChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -744,24 +794,52 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
         {activeTab === "pembukuan" && (
           <div className="grid gap-8 md:grid-cols-[320px_1fr]">
             <form
-              onSubmit={handleAddPengeluaran}
+              onSubmit={handleAddPembukuan}
               className="h-fit rounded-xl border border-[#f0d9bd] bg-white p-5"
             >
               <h2 className="mb-4 text-base font-bold text-[#e66307]">
-                Catat pengeluaran
+                {tipePembukuan === "masuk" ? "Catat pemasukan" : "Catat pengeluaran"}
               </h2>
+              <label className="mb-3 block text-sm text-[#5c5245]">
+                Jenis pembukuan
+                <select
+                  value={tipePembukuan}
+                  onChange={(e) => {
+                    setTipePembukuan(e.target.value as "masuk" | "keluar");
+                    setPengeluaranError("");
+                  }}
+                  className="mt-1 w-full rounded-lg border border-[#e7d3ba] px-3 py-2 text-sm outline-none focus:border-[#fe972f]"
+                >
+                  <option value="keluar">Pengeluaran</option>
+                  <option value="masuk">Pemasukan</option>
+                </select>
+              </label>
               <label className="mb-3 block text-sm text-[#5c5245]">
                 Kategori
                 <select
-                  value={kategoriPengeluaran}
-                  onChange={(e) => setKategoriPengeluaran(e.target.value)}
+                  value={tipePembukuan === "masuk" ? kategoriPemasukan : kategoriPengeluaran}
+                  onChange={(e) =>
+                    tipePembukuan === "masuk"
+                      ? setKategoriPemasukan(e.target.value)
+                      : setKategoriPengeluaran(e.target.value)
+                  }
                   className="mt-1 w-full rounded-lg border border-[#e7d3ba] px-3 py-2 text-sm outline-none focus:border-[#fe972f]"
                 >
-                  <option>Bahan Baku</option>
-                  <option>Sewa</option>
-                  <option>Gaji</option>
-                  <option>Operasional</option>
-                  <option>Lainnya</option>
+                  {tipePembukuan === "masuk" ? (
+                    <>
+                      <option>Penjualan di luar NaDi</option>
+                      <option>Modal Tambahan</option>
+                      <option>Pendapatan Lainnya</option>
+                    </>
+                  ) : (
+                    <>
+                      <option>Bahan Baku</option>
+                      <option>Sewa</option>
+                      <option>Gaji</option>
+                      <option>Operasional</option>
+                      <option>Lainnya</option>
+                    </>
+                  )}
                 </select>
               </label>
               <label className="mb-3 block text-sm text-[#5c5245]">
@@ -800,7 +878,11 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                 disabled={isSubmittingPengeluaran}
                 className="w-full rounded-lg bg-[#fe972f] py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
               >
-                {isSubmittingPengeluaran ? "Menyimpan..." : "Simpan pengeluaran"}
+                {isSubmittingPengeluaran
+                  ? "Menyimpan..."
+                  : tipePembukuan === "masuk"
+                  ? "Simpan pemasukan"
+                  : "Simpan pengeluaran"}
               </button>
             </form>
 
@@ -936,9 +1018,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    entry.tipe === "keluar"
-                                      ? handleDeletePengeluaran(entry.sourceId)
-                                      : handleDeleteTransaction(entry.sourceId)
+                                    handleDeleteLedgerEntry(entry)
                                   }
                                   className="text-xs font-semibold text-red-500 hover:underline"
                                 >
