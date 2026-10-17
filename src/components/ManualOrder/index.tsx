@@ -2,16 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import type { Profile } from "../../lib/useAuth";
 
+type Varian = "hot" | "ice" | null;
+
 type Product = {
   id: string;
   nama_produk: string;
-  harga: number;
+  harga: number | null;
   kategori: "makanan" | "minuman";
   foto_url: string | null;
+  punya_varian_suhu: boolean;
+  harga_hot: number | null;
+  harga_ice: number | null;
 };
 
 type CartItem = {
   product: Product;
+  varian: Varian;
+  harga: number;
   qty: number;
 };
 
@@ -26,6 +33,59 @@ const buatKodePesanan = () => {
   const acak = Math.random().toString(36).slice(2, 8).toUpperCase();
   return `NDI-${acak}`;
 };
+
+const cartKey = (productId: string, varian: Varian) =>
+  `${productId}|${varian ?? "default"}`;
+
+const hargaUntuk = (product: Product, varian: Varian) =>
+  varian === "hot"
+    ? product.harga_hot ?? 0
+    : varian === "ice"
+    ? product.harga_ice ?? 0
+    : product.harga ?? 0;
+
+// Tombol +/- yang dipakai berulang untuk setiap baris pilihan.
+const Stepper = ({
+  qty,
+  label,
+  onMinus,
+  onPlus,
+}: {
+  qty: number;
+  label: string;
+  onMinus: () => void;
+  onPlus: () => void;
+}) =>
+  qty === 0 ? (
+    <button
+      type="button"
+      onClick={onPlus}
+      aria-label={`Tambah ${label}`}
+      className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fe972f] text-lg text-white"
+    >
+      +
+    </button>
+  ) : (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={onMinus}
+        aria-label={`Kurangi ${label}`}
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e7d3ba] text-lg text-[#e66307]"
+      >
+        −
+      </button>
+      <span className="w-4 text-center text-sm">{qty}</span>
+      <button
+        type="button"
+        onClick={onPlus}
+        aria-label={`Tambah ${label}`}
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e7d3ba] text-lg text-[#e66307]"
+      >
+        +
+      </button>
+    </div>
+  );
 
 export const ManualOrder = ({
   profile,
@@ -52,7 +112,9 @@ export const ManualOrder = ({
     const load = async () => {
       const { data } = await supabase
         .from("products")
-        .select("id, nama_produk, harga, kategori, foto_url")
+        .select(
+          "id, nama_produk, harga, kategori, foto_url, punya_varian_suhu, harga_hot, harga_ice"
+        )
         .eq("umkm_id", profile.umkm_id)
         .eq("tersedia", true)
         .order("nama_produk");
@@ -71,22 +133,31 @@ export const ManualOrder = ({
   );
 
   const itemKeranjang = Object.values(cart);
-  const totalHarga = itemKeranjang.reduce(
-    (sum, i) => sum + i.qty * i.product.harga,
-    0
-  );
+  const totalHarga = itemKeranjang.reduce((sum, i) => sum + i.qty * i.harga, 0);
 
-  const ubahQty = (product: Product, delta: number) => {
+  const ubahQty = (product: Product, varian: Varian, delta: number) => {
+    const key = cartKey(product.id, varian);
     setCart((prev) => {
-      const qtyBaru = (prev[product.id]?.qty ?? 0) + delta;
+      const qtyBaru = (prev[key]?.qty ?? 0) + delta;
       if (qtyBaru <= 0) {
         const salinan = { ...prev };
-        delete salinan[product.id];
+        delete salinan[key];
         return salinan;
       }
-      return { ...prev, [product.id]: { product, qty: qtyBaru } };
+      return {
+        ...prev,
+        [key]: {
+          product,
+          varian,
+          harga: hargaUntuk(product, varian),
+          qty: qtyBaru,
+        },
+      };
     });
   };
+
+  const qtyDi = (product: Product, varian: Varian) =>
+    cart[cartKey(product.id, varian)]?.qty ?? 0;
 
   const resetForm = () => {
     setCart({});
@@ -142,8 +213,9 @@ export const ManualOrder = ({
       itemKeranjang.map((item) => ({
         order_id: orderBaru!.id,
         product_id: item.product.id,
+        varian: item.varian,
         jumlah: item.qty,
-        harga_saat_pesan: item.product.harga,
+        harga_saat_pesan: item.harga,
       }))
     );
 
@@ -231,13 +303,12 @@ export const ManualOrder = ({
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {daftarTampil.map((product) => {
-              const qty = cart[product.id]?.qty ?? 0;
-              return (
-                <div
-                  key={product.id}
-                  className="flex items-center gap-3 rounded-xl border border-[#f0d9bd] bg-white p-3"
-                >
+            {daftarTampil.map((product) => (
+              <div
+                key={product.id}
+                className="rounded-xl border border-[#f0d9bd] bg-white p-3"
+              >
+                <div className="mb-2 flex items-center gap-3">
                   {product.foto_url ? (
                     <img
                       src={product.foto_url}
@@ -249,47 +320,43 @@ export const ManualOrder = ({
                       🍽️
                     </div>
                   )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-[#3d332a]">
-                      {product.nama_produk}
-                    </p>
-                    <p className="text-xs text-[#e66307]">
-                      {formatRupiah(product.harga)}
-                    </p>
-                  </div>
-                  {qty === 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => ubahQty(product, 1)}
-                      aria-label={`Tambah ${product.nama_produk}`}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fe972f] text-lg text-white"
-                    >
-                      +
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => ubahQty(product, -1)}
-                        aria-label="Kurangi jumlah"
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e7d3ba] text-lg text-[#e66307]"
-                      >
-                        −
-                      </button>
-                      <span className="w-4 text-center text-sm">{qty}</span>
-                      <button
-                        type="button"
-                        onClick={() => ubahQty(product, 1)}
-                        aria-label="Tambah jumlah"
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e7d3ba] text-lg text-[#e66307]"
-                      >
-                        +
-                      </button>
-                    </div>
-                  )}
+                  <p className="min-w-0 flex-1 truncate text-sm font-semibold text-[#3d332a]">
+                    {product.nama_produk}
+                  </p>
                 </div>
-              );
-            })}
+
+                {product.punya_varian_suhu ? (
+                  <div className="space-y-2">
+                    {(["hot", "ice"] as const).map((varian) => (
+                      <div key={varian} className="flex items-center justify-between">
+                        <span className="text-xs text-[#e66307]">
+                          {varian === "hot" ? "Hot" : "Ice"} ·{" "}
+                          {formatRupiah(hargaUntuk(product, varian))}
+                        </span>
+                        <Stepper
+                          qty={qtyDi(product, varian)}
+                          label={`${product.nama_produk} ${varian}`}
+                          onMinus={() => ubahQty(product, varian, -1)}
+                          onPlus={() => ubahQty(product, varian, 1)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-[#e66307]">
+                      {formatRupiah(hargaUntuk(product, null))}
+                    </span>
+                    <Stepper
+                      qty={qtyDi(product, null)}
+                      label={product.nama_produk}
+                      onMinus={() => ubahQty(product, null, -1)}
+                      onPlus={() => ubahQty(product, null, 1)}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -306,11 +373,20 @@ export const ManualOrder = ({
         ) : (
           <ul className="mb-3 space-y-1 text-sm text-[#3d332a]">
             {itemKeranjang.map((item) => (
-              <li key={item.product.id} className="flex justify-between">
+              <li
+                key={cartKey(item.product.id, item.varian)}
+                className="flex justify-between"
+              >
                 <span>
                   {item.qty}x {item.product.nama_produk}
+                  {item.varian && (
+                    <span className="text-xs text-[#9a8a78]">
+                      {" "}
+                      ({item.varian === "hot" ? "Hot" : "Ice"})
+                    </span>
+                  )}
                 </span>
-                <span>{formatRupiah(item.qty * item.product.harga)}</span>
+                <span>{formatRupiah(item.qty * item.harga)}</span>
               </li>
             ))}
           </ul>
@@ -364,6 +440,7 @@ export const ManualOrder = ({
             type="checkbox"
             checked={sudahBayar}
             onChange={(e) => setSudahBayar(e.target.checked)}
+            className="h-4 w-4 appearance-auto accent-[#fe972f]"
           />
           Sudah dibayar (tandai lunas sekarang)
         </label>

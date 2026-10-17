@@ -5,6 +5,7 @@ import type { Profile } from "../../lib/useAuth";
 type OrderItemRow = {
   jumlah: number;
   harga_saat_pesan: number;
+  varian: string | null;
   products: { nama_produk: string } | null;
 };
 
@@ -66,7 +67,7 @@ export const OrderManagement = ({ profile }: { profile: Profile }) => {
       .from("orders")
       .select(
         `id, kode_pesanan, status, catatan, total, created_at, sumber, nama_pelanggan,
-         order_items ( jumlah, harga_saat_pesan, products ( nama_produk ) ),
+         order_items ( jumlah, harga_saat_pesan, varian, products ( nama_produk ) ),
          transactions ( id, metode, status_bayar, paid_at )`
       )
       .eq("umkm_id", profile.umkm_id)
@@ -191,6 +192,11 @@ export const OrderManagement = ({ profile }: { profile: Profile }) => {
                   {order.order_items.map((item, i) => (
                     <li key={i}>
                       {item.jumlah}x {item.products?.nama_produk ?? "Produk"}
+                      {item.varian && (
+                        <span className="ml-1 rounded-full bg-[#fdeee0] px-2 py-0.5 text-[10px] font-semibold text-[#e66307]">
+                          {item.varian === "hot" ? "Hot" : "Ice"}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>

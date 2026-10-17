@@ -17,10 +17,13 @@ type Product = {
   id: string;
   nama_produk: string;
   deskripsi: string | null;
-  harga: number;
+  harga: number | null;
   tersedia: boolean;
   kategori: "makanan" | "minuman";
   foto_url: string | null;
+  punya_varian_suhu: boolean;
+  harga_hot: number | null;
+  harga_ice: number | null;
 };
 
 type Report = {
@@ -28,8 +31,6 @@ type Report = {
   jumlahPesanan: number;
   produkTerlaris: { nama_produk: string; total_terjual: number }[];
   dailyRevenue: { tanggal: string; total: number }[];
-  incomeSources: { sumber: string; total: number }[];
-  expenseByCategory: { kategori: string; total: number }[];
   transaksiList: { id: string; kode_pesanan: string; tanggal: string; jumlah: number }[];
 };
 
@@ -40,7 +41,6 @@ type LedgerEntry = {
   keterangan: string;
   jumlah: number;
   tipe: "masuk" | "keluar";
-  sumber: "transaksi" | "pengeluaran" | "pemasukan_manual";
 };
 
 export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
@@ -66,9 +66,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
   const [sampaiTanggal, setSampaiTanggal] = useState(
     new Date().toISOString().slice(0, 10)
   );
-  const [tipePembukuan, setTipePembukuan] = useState<"masuk" | "keluar">("keluar");
   const [kategoriPengeluaran, setKategoriPengeluaran] = useState("Bahan Baku");
-  const [kategoriPemasukan, setKategoriPemasukan] = useState("Penjualan di luar NaDi");
   const [jumlahPengeluaran, setJumlahPengeluaran] = useState("");
   const [deskripsiPengeluaran, setDeskripsiPengeluaran] = useState("");
   const [tanggalPengeluaran, setTanggalPengeluaran] = useState(
@@ -81,6 +79,9 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
   const [harga, setHarga] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
   const [kategori, setKategori] = useState<"makanan" | "minuman">("makanan");
+  const [punyaVarian, setPunyaVarian] = useState(false);
+  const [hargaHot, setHargaHot] = useState("");
+  const [hargaIce, setHargaIce] = useState("");
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
@@ -90,7 +91,9 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
     setLoadingProducts(true);
     const { data, error } = await supabase
       .from("products")
-      .select("id, nama_produk, deskripsi, harga, tersedia, kategori, foto_url")
+      .select(
+        "id, nama_produk, deskripsi, harga, tersedia, kategori, foto_url, punya_varian_suhu, harga_hot, harga_ice"
+      )
       .eq("umkm_id", profile.umkm_id)
       .order("created_at", { ascending: false });
 
@@ -116,59 +119,37 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
   const fetchReport = async () => {
     setLoadingReport(true);
 
-    const [
-      { data: transaksi },
-      { count: jumlahPesanan },
-      { data: itemTerjual },
-      { data: pemasukanManual, error: errorPemasukanManual },
-      { data: pengeluaran, error: errorPengeluaran },
-    ] = await Promise.all([
-      supabase
-        .from("transactions")
-        .select("id, jumlah_bayar, paid_at, orders!inner(umkm_id, kode_pesanan)")
-        .eq("orders.umkm_id", profile.umkm_id)
-        .eq("status_bayar", "lunas")
-        .order("paid_at", { ascending: false }),
-      supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("umkm_id", profile.umkm_id),
-      supabase
-        .from("order_items")
-        .select("jumlah, products!inner(nama_produk, umkm_id)")
-        .eq("products.umkm_id", profile.umkm_id),
-      supabase
-        .from("pemasukan_manual")
-        .select("id, kategori, deskripsi, jumlah, tanggal")
-        .eq("umkm_id", profile.umkm_id),
-      supabase
-        .from("pengeluaran")
-        .select("id, kategori, jumlah, tanggal")
-        .eq("umkm_id", profile.umkm_id),
-    ]);
+    const [{ data: transaksi }, { count: jumlahPesanan }, { data: itemTerjual }] =
+      await Promise.all([
+        supabase
+          .from("transactions")
+          .select("id, jumlah_bayar, paid_at, orders!inner(umkm_id, kode_pesanan)")
+          .eq("orders.umkm_id", profile.umkm_id)
+          .eq("status_bayar", "lunas")
+          .order("paid_at", { ascending: false }),
+        supabase
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("umkm_id", profile.umkm_id),
+        supabase
+          .from("order_items")
+          .select("jumlah, products!inner(nama_produk, umkm_id)")
+          .eq("products.umkm_id", profile.umkm_id),
+      ]);
 
-    if (errorPemasukanManual) {
-      console.error("Gagal memuat pemasukan manual untuk laporan:", errorPemasukanManual.message);
-    }
-    if (errorPengeluaran) {
-      console.error("Gagal memuat pengeluaran untuk laporan:", errorPengeluaran.message);
-    }
+    const totalPendapatan = (transaksi ?? []).reduce(
+      (sum, t) => sum + Number(t.jumlah_bayar),
+      0
+    );
 
     const transaksiList = (transaksi ?? []).map((t: any) => ({
       id: t.id as string,
       kode_pesanan: t.orders.kode_pesanan as string,
-      tanggal: (t.paid_at ?? t.orders.created_at) as string,
+      tanggal: t.paid_at as string,
       jumlah: Number(t.jumlah_bayar),
     }));
 
-    const totalPendapatanNaDi = transaksiList.reduce((sum, t) => sum + t.jumlah, 0);
-    const totalPendapatanManual = (pemasukanManual ?? []).reduce(
-      (sum, p) => sum + Number(p.jumlah),
-      0
-    );
-    const totalPendapatan = totalPendapatanNaDi + totalPendapatanManual;
-
-    // Tren pendapatan menggabungkan transaksi NaDi dan pemasukan manual.
+    // Tren pendapatan 14 hari terakhir (tanggal tanpa transaksi tetap tampil, nilainya 0)
     const hariMap = new Map<string, number>();
     for (let i = 13; i >= 0; i -= 1) {
       const tgl = new Date();
@@ -176,50 +157,19 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
       const kunci = tgl.toISOString().slice(0, 10);
       hariMap.set(kunci, 0);
     }
-    const semuaPemasukan = [
-      ...transaksiList.map((t) => ({ tanggal: t.tanggal, jumlah: t.jumlah })),
-      ...(pemasukanManual ?? []).map((p) => ({ tanggal: p.tanggal, jumlah: Number(p.jumlah) })),
-    ];
-    for (const pemasukan of semuaPemasukan) {
-      const kunci = pemasukan.tanggal?.slice(0, 10);
+    for (const t of transaksiList) {
+      const kunci = t.tanggal?.slice(0, 10);
       if (kunci && hariMap.has(kunci)) {
-        hariMap.set(kunci, (hariMap.get(kunci) ?? 0) + pemasukan.jumlah);
+        hariMap.set(kunci, (hariMap.get(kunci) ?? 0) + t.jumlah);
       }
     }
     const dailyRevenue = Array.from(hariMap.entries()).map(([kunci, total]) => ({
-      tanggal: new Date(`${kunci}T12:00:00`).toLocaleDateString("id-ID", {
+      tanggal: new Date(kunci).toLocaleDateString("id-ID", {
         day: "2-digit",
         month: "short",
       }),
       total,
     }));
-
-    // Perbandingan sumber pemasukan: transaksi NaDi dan pemasukan manual per kategori.
-    const sumberMap = new Map<string, number>();
-    sumberMap.set("Pesanan NaDi", totalPendapatanNaDi);
-    for (const p of pemasukanManual ?? []) {
-      const kategoriPemasukan = p.kategori || "Pendapatan lainnya";
-      sumberMap.set(
-        kategoriPemasukan,
-        (sumberMap.get(kategoriPemasukan) ?? 0) + Number(p.jumlah)
-      );
-    }
-    const incomeSources = Array.from(sumberMap.entries()).map(([sumber, total]) => ({
-      sumber,
-      total,
-    }));
-
-    // Total pengeluaran dikelompokkan berdasarkan kategori.
-    const pengeluaranMap = new Map<string, number>();
-    for (const p of pengeluaran ?? []) {
-      pengeluaranMap.set(
-        p.kategori,
-        (pengeluaranMap.get(p.kategori) ?? 0) + Number(p.jumlah)
-      );
-    }
-    const expenseByCategory = Array.from(pengeluaranMap.entries())
-      .map(([kategori, total]) => ({ kategori, total }))
-      .sort((a, b) => b.total - a.total);
 
     const terjualMap = new Map<string, number>();
     for (const item of itemTerjual ?? []) {
@@ -236,8 +186,6 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
       jumlahPesanan: jumlahPesanan ?? 0,
       produkTerlaris,
       dailyRevenue,
-      incomeSources,
-      expenseByCategory,
       transaksiList,
     });
     setLoadingReport(false);
@@ -251,7 +199,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
   };
 
   useEffect(() => {
-    if (activeTab === "laporan") {
+    if (activeTab === "laporan" && !report) {
       fetchReport();
     }
     if (activeTab === "pembukuan") {
@@ -263,48 +211,25 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
   const fetchLedger = async () => {
     setLoadingLedger(true);
 
-    const [
-      { data: pemasukanPesanan },
-      { data: pemasukanManual, error: errorPemasukanManual },
-      { data: pengeluaran },
-    ] = await Promise.all([
+    const [{ data: pemasukan }, { data: pengeluaran }] = await Promise.all([
       supabase
         .from("transactions")
         .select("id, jumlah_bayar, paid_at, orders!inner(umkm_id, kode_pesanan, created_at)")
         .eq("orders.umkm_id", profile.umkm_id)
         .eq("status_bayar", "lunas"),
       supabase
-        .from("pemasukan_manual")
-        .select("id, kategori, deskripsi, jumlah, tanggal")
-        .eq("umkm_id", profile.umkm_id),
-      supabase
         .from("pengeluaran")
         .select("id, kategori, deskripsi, jumlah, tanggal")
         .eq("umkm_id", profile.umkm_id),
     ]);
 
-    if (errorPemasukanManual) {
-      console.error("Gagal memuat pemasukan manual:", errorPemasukanManual.message);
-    }
-
-    const entriPesanan: LedgerEntry[] = (pemasukanPesanan ?? []).map((t: any) => ({
-      id: `transaksi-${t.id}`,
+    const entriMasuk: LedgerEntry[] = (pemasukan ?? []).map((t: any) => ({
+      id: `masuk-${t.id}`,
       sourceId: t.id,
       tanggal: t.paid_at ?? t.orders.created_at,
       keterangan: `Pesanan ${t.orders.kode_pesanan}`,
       jumlah: Number(t.jumlah_bayar),
       tipe: "masuk",
-      sumber: "transaksi",
-    }));
-
-    const entriMasukManual: LedgerEntry[] = (pemasukanManual ?? []).map((p) => ({
-      id: `masuk-manual-${p.id}`,
-      sourceId: p.id,
-      tanggal: p.tanggal,
-      keterangan: p.deskripsi ? `${p.kategori}: ${p.deskripsi}` : p.kategori,
-      jumlah: Number(p.jumlah),
-      tipe: "masuk",
-      sumber: "pemasukan_manual",
     }));
 
     const entriKeluar: LedgerEntry[] = (pengeluaran ?? []).map((p) => ({
@@ -314,10 +239,9 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
       keterangan: p.deskripsi ? `${p.kategori}: ${p.deskripsi}` : p.kategori,
       jumlah: Number(p.jumlah),
       tipe: "keluar",
-      sumber: "pengeluaran",
     }));
 
-    const gabungan = [...entriPesanan, ...entriMasukManual, ...entriKeluar].sort(
+    const gabungan = [...entriMasuk, ...entriKeluar].sort(
       (a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
     );
 
@@ -325,27 +249,24 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
     setLoadingLedger(false);
   };
 
-  const handleAddPembukuan = async (event: FormEvent) => {
+  const handleAddPengeluaran = async (event: FormEvent) => {
     event.preventDefault();
     setPengeluaranError("");
 
     const jumlahNumber = Number(jumlahPengeluaran);
     if (!jumlahPengeluaran.trim() || Number.isNaN(jumlahNumber) || jumlahNumber <= 0) {
-      setPengeluaranError("Jumlah harus diisi dengan angka yang lebih besar dari 0.");
+      setPengeluaranError("Jumlah pengeluaran harus diisi dengan angka.");
       return;
     }
 
     setIsSubmittingPengeluaran(true);
-    const isPemasukan = tipePembukuan === "masuk";
-    const { error } = await supabase
-      .from(isPemasukan ? "pemasukan_manual" : "pengeluaran")
-      .insert({
-        umkm_id: profile.umkm_id,
-        kategori: isPemasukan ? kategoriPemasukan : kategoriPengeluaran,
-        deskripsi: deskripsiPengeluaran.trim() || null,
-        jumlah: jumlahNumber,
-        tanggal: tanggalPengeluaran,
-      });
+    const { error } = await supabase.from("pengeluaran").insert({
+      umkm_id: profile.umkm_id,
+      kategori: kategoriPengeluaran,
+      deskripsi: deskripsiPengeluaran.trim() || null,
+      jumlah: jumlahNumber,
+      tanggal: tanggalPengeluaran,
+    });
 
     if (error) {
       setPengeluaranError("Gagal menyimpan: " + error.message);
@@ -356,33 +277,13 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
     setJumlahPengeluaran("");
     setDeskripsiPengeluaran("");
     setIsSubmittingPengeluaran(false);
-    await fetchLedger();
+    fetchLedger();
   };
 
   const handleDeletePengeluaran = async (id: string) => {
     if (!confirm("Hapus catatan pengeluaran ini?")) return;
     await supabase.from("pengeluaran").delete().eq("id", id);
     fetchLedger();
-  };
-
-  const handleDeletePemasukanManual = async (id: string) => {
-    if (!confirm("Hapus catatan pemasukan manual ini?")) return;
-    const { error } = await supabase.from("pemasukan_manual").delete().eq("id", id);
-    if (error) {
-      alert("Gagal menghapus pemasukan: " + error.message);
-      return;
-    }
-    await fetchLedger();
-  };
-
-  const handleDeleteLedgerEntry = async (entry: LedgerEntry) => {
-    if (entry.sumber === "transaksi") {
-      await handleDeleteTransaction(entry.sourceId);
-    } else if (entry.sumber === "pemasukan_manual") {
-      await handleDeletePemasukanManual(entry.sourceId);
-    } else {
-      await handleDeletePengeluaran(entry.sourceId);
-    }
   };
 
   const handleFotoChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -396,8 +297,26 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
     setFormError("");
 
     const hargaNumber = Number(harga);
-    if (!namaProduk.trim() || !harga.trim() || Number.isNaN(hargaNumber)) {
-      setFormError("Nama produk dan harga (angka) wajib diisi.");
+    const hargaHotNumber = Number(hargaHot);
+    const hargaIceNumber = Number(hargaIce);
+
+    if (!namaProduk.trim()) {
+      setFormError("Nama produk wajib diisi.");
+      return;
+    }
+
+    if (punyaVarian) {
+      if (
+        !hargaHot.trim() ||
+        !hargaIce.trim() ||
+        Number.isNaN(hargaHotNumber) ||
+        Number.isNaN(hargaIceNumber)
+      ) {
+        setFormError("Harga Hot dan harga Ice wajib diisi (angka).");
+        return;
+      }
+    } else if (!harga.trim() || Number.isNaN(hargaNumber)) {
+      setFormError("Harga (angka) wajib diisi.");
       return;
     }
 
@@ -426,7 +345,10 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
     const { error } = await supabase.from("products").insert({
       umkm_id: profile.umkm_id,
       nama_produk: namaProduk.trim(),
-      harga: hargaNumber,
+      harga: punyaVarian ? null : hargaNumber,
+      punya_varian_suhu: punyaVarian,
+      harga_hot: punyaVarian ? hargaHotNumber : null,
+      harga_ice: punyaVarian ? hargaIceNumber : null,
       deskripsi: deskripsi.trim() || null,
       tersedia: true,
       kategori,
@@ -441,6 +363,9 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
 
     setNamaProduk("");
     setHarga("");
+    setHargaHot("");
+    setHargaIce("");
+    setPunyaVarian(false);
     setDeskripsi("");
     setKategori("makanan");
     setFotoFile(null);
@@ -511,6 +436,13 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
       currency: "IDR",
       maximumFractionDigits: 0,
     }).format(angka);
+
+  const tampilHarga = (product: Product) =>
+    product.punya_varian_suhu
+      ? `Hot ${formatRupiah(product.harga_hot ?? 0)} / Ice ${formatRupiah(
+          product.harga_ice ?? 0
+        )}`
+      : formatRupiah(product.harga ?? 0);
 
   const getRangeForPeriode = (): [Date, Date] | null => {
     const now = new Date();
@@ -659,25 +591,64 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                 Kategori
                 <select
                   value={kategori}
-                  onChange={(e) =>
-                    setKategori(e.target.value as "makanan" | "minuman")
-                  }
+                  onChange={(e) => {
+                    const nilai = e.target.value as "makanan" | "minuman";
+                    setKategori(nilai);
+                    if (nilai !== "minuman") setPunyaVarian(false);
+                  }}
                   className="mt-1 w-full rounded-lg border border-[#e7d3ba] px-3 py-2 text-sm outline-none focus:border-[#fe972f]"
                 >
                   <option value="makanan">Makanan</option>
                   <option value="minuman">Minuman</option>
                 </select>
               </label>
-              <label className="mb-3 block text-sm text-[#5c5245]">
-                Harga (Rp)
-                <input
-                  value={harga}
-                  onChange={(e) => setHarga(e.target.value)}
-                  inputMode="numeric"
-                  className="mt-1 w-full rounded-lg border border-[#e7d3ba] px-3 py-2 text-sm outline-none focus:border-[#fe972f]"
-                  placeholder="15000"
-                />
-              </label>
+              {kategori === "minuman" && (
+                <label className="mb-3 flex items-center gap-2 text-sm text-[#5c5245]">
+                  <input
+                    type="checkbox"
+                    checked={punyaVarian}
+                    onChange={(e) => setPunyaVarian(e.target.checked)}
+                    className="h-4 w-4 appearance-auto accent-[#fe972f]"
+                  />
+                  Ada pilihan Hot / Ice (harga berbeda)
+                </label>
+              )}
+
+              {kategori === "minuman" && punyaVarian ? (
+                <div className="mb-3 grid grid-cols-2 gap-3">
+                  <label className="block text-sm text-[#5c5245]">
+                    Harga Hot (Rp)
+                    <input
+                      value={hargaHot}
+                      onChange={(e) => setHargaHot(e.target.value)}
+                      inputMode="numeric"
+                      className="mt-1 w-full rounded-lg border border-[#e7d3ba] px-3 py-2 text-sm outline-none focus:border-[#fe972f]"
+                      placeholder="12000"
+                    />
+                  </label>
+                  <label className="block text-sm text-[#5c5245]">
+                    Harga Ice (Rp)
+                    <input
+                      value={hargaIce}
+                      onChange={(e) => setHargaIce(e.target.value)}
+                      inputMode="numeric"
+                      className="mt-1 w-full rounded-lg border border-[#e7d3ba] px-3 py-2 text-sm outline-none focus:border-[#fe972f]"
+                      placeholder="15000"
+                    />
+                  </label>
+                </div>
+              ) : (
+                <label className="mb-3 block text-sm text-[#5c5245]">
+                  Harga (Rp)
+                  <input
+                    value={harga}
+                    onChange={(e) => setHarga(e.target.value)}
+                    inputMode="numeric"
+                    className="mt-1 w-full rounded-lg border border-[#e7d3ba] px-3 py-2 text-sm outline-none focus:border-[#fe972f]"
+                    placeholder="15000"
+                  />
+                </label>
+              )}
               <label className="mb-4 block text-sm text-[#5c5245]">
                 Deskripsi (opsional)
                 <textarea
@@ -752,7 +723,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                           </div>
                         </td>
                         <td className="px-5 py-3 capitalize">{product.kategori}</td>
-                        <td className="px-5 py-3">{formatRupiah(product.harga)}</td>
+                        <td className="px-5 py-3">{tampilHarga(product)}</td>
                         <td className="px-5 py-3">
                           <button
                             type="button"
@@ -802,7 +773,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                         <img
                           src={product.foto_url}
                           alt={product.nama_produk}
-                          className="h-12 w-12 shrink-0 rounded-lg object-contain"
+                          className="h-12 w-12 shrink-0 rounded-lg object-cover"
                         />
                       ) : (
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#fdeee0] text-xl">
@@ -814,7 +785,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                           {product.nama_produk}
                         </p>
                         <p className="text-xs capitalize text-[#9a8a78]">
-                          {product.kategori} · {formatRupiah(product.harga)}
+                          {product.kategori} · {tampilHarga(product)}
                         </p>
                         {product.deskripsi && (
                           <p className="text-xs text-[#9a8a78]">{product.deskripsi}</p>
@@ -851,52 +822,24 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
         {activeTab === "pembukuan" && (
           <div className="grid gap-8 md:grid-cols-[320px_1fr]">
             <form
-              onSubmit={handleAddPembukuan}
+              onSubmit={handleAddPengeluaran}
               className="h-fit rounded-xl border border-[#f0d9bd] bg-white p-5"
             >
               <h2 className="mb-4 text-base font-bold text-[#e66307]">
-                {tipePembukuan === "masuk" ? "Catat pemasukan" : "Catat pengeluaran"}
+                Catat pengeluaran
               </h2>
-              <label className="mb-3 block text-sm text-[#5c5245]">
-                Jenis pembukuan
-                <select
-                  value={tipePembukuan}
-                  onChange={(e) => {
-                    setTipePembukuan(e.target.value as "masuk" | "keluar");
-                    setPengeluaranError("");
-                  }}
-                  className="mt-1 w-full rounded-lg border border-[#e7d3ba] px-3 py-2 text-sm outline-none focus:border-[#fe972f]"
-                >
-                  <option value="keluar">Pengeluaran</option>
-                  <option value="masuk">Pemasukan</option>
-                </select>
-              </label>
               <label className="mb-3 block text-sm text-[#5c5245]">
                 Kategori
                 <select
-                  value={tipePembukuan === "masuk" ? kategoriPemasukan : kategoriPengeluaran}
-                  onChange={(e) =>
-                    tipePembukuan === "masuk"
-                      ? setKategoriPemasukan(e.target.value)
-                      : setKategoriPengeluaran(e.target.value)
-                  }
+                  value={kategoriPengeluaran}
+                  onChange={(e) => setKategoriPengeluaran(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-[#e7d3ba] px-3 py-2 text-sm outline-none focus:border-[#fe972f]"
                 >
-                  {tipePembukuan === "masuk" ? (
-                    <>
-                      <option>Penjualan di luar NaDi</option>
-                      <option>Modal Tambahan</option>
-                      <option>Pendapatan Lainnya</option>
-                    </>
-                  ) : (
-                    <>
-                      <option>Bahan Baku</option>
-                      <option>Sewa</option>
-                      <option>Gaji</option>
-                      <option>Operasional</option>
-                      <option>Lainnya</option>
-                    </>
-                  )}
+                  <option>Bahan Baku</option>
+                  <option>Sewa</option>
+                  <option>Gaji</option>
+                  <option>Operasional</option>
+                  <option>Lainnya</option>
                 </select>
               </label>
               <label className="mb-3 block text-sm text-[#5c5245]">
@@ -935,11 +878,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                 disabled={isSubmittingPengeluaran}
                 className="w-full rounded-lg bg-[#fe972f] py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
               >
-                {isSubmittingPengeluaran
-                  ? "Menyimpan..."
-                  : tipePembukuan === "masuk"
-                  ? "Simpan pemasukan"
-                  : "Simpan pengeluaran"}
+                {isSubmittingPengeluaran ? "Menyimpan..." : "Simpan pengeluaran"}
               </button>
             </form>
 
@@ -1075,7 +1014,9 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    handleDeleteLedgerEntry(entry)
+                                    entry.tipe === "keluar"
+                                      ? handleDeletePengeluaran(entry.sourceId)
+                                      : handleDeleteTransaction(entry.sourceId)
                                   }
                                   className="text-xs font-semibold text-red-500 hover:underline"
                                 >
@@ -1154,7 +1095,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                       {formatRupiah(report.totalPendapatan)}
                     </p>
                     <p className="text-sm text-[#9a8a78]">
-                      Total pendapatan (NaDi + pemasukan manual)
+                      Total pendapatan (transaksi lunas)
                     </p>
                   </div>
                   <div className="rounded-xl border border-[#f0d9bd] bg-white p-5">
@@ -1183,82 +1124,12 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                           width={40}
                         />
                         <Tooltip
-                          formatter={(value) => formatRupiah(Number(value))}
+                          formatter={(value: any) => formatRupiah(Number(value))}
                           contentStyle={{ fontSize: 12, borderRadius: 8 }}
                         />
                         <Bar dataKey="total" fill="#fe972f" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
-                  </div>
-                </div>
-
-                <div className="mb-6 grid gap-6 lg:grid-cols-2">
-                  <div className="rounded-xl border border-[#f0d9bd] bg-white p-5">
-                    <h2 className="mb-3 text-base font-bold text-[#e66307]">
-                      Pemasukan Berdasarkan Sumber
-                    </h2>
-                    {report.incomeSources.length === 0 ? (
-                      <p className="text-sm text-[#9a8a78]">Belum ada data pemasukan.</p>
-                    ) : (
-                      <div className="h-64 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={report.incomeSources} margin={{ bottom: 8 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0d9bd" />
-                            <XAxis
-                              dataKey="sumber"
-                              tick={{ fontSize: 10, fill: "#9a8a78" }}
-                              interval={0}
-                              angle={-12}
-                              textAnchor="end"
-                              height={55}
-                            />
-                            <YAxis
-                              tick={{ fontSize: 11, fill: "#9a8a78" }}
-                              tickFormatter={(v) => `${Math.round(Number(v) / 1000)}rb`}
-                              width={42}
-                            />
-                            <Tooltip
-                              formatter={(value) => formatRupiah(Number(value))}
-                              contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                            />
-                            <Bar dataKey="total" name="Total pemasukan" fill="#16a34a" radius={[4, 4, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="rounded-xl border border-[#f0d9bd] bg-white p-5">
-                    <h2 className="mb-3 text-base font-bold text-[#e66307]">
-                      Pengeluaran Berdasarkan Kategori
-                    </h2>
-                    {report.expenseByCategory.length === 0 ? (
-                      <p className="text-sm text-[#9a8a78]">Belum ada data pengeluaran.</p>
-                    ) : (
-                      <div className="h-64 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={report.expenseByCategory} layout="vertical" margin={{ left: 8 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0d9bd" />
-                            <XAxis
-                              type="number"
-                              tick={{ fontSize: 11, fill: "#9a8a78" }}
-                              tickFormatter={(v) => `${Math.round(Number(v) / 1000)}rb`}
-                            />
-                            <YAxis
-                              type="category"
-                              dataKey="kategori"
-                              tick={{ fontSize: 11, fill: "#9a8a78" }}
-                              width={90}
-                            />
-                            <Tooltip
-                              formatter={(value) => formatRupiah(Number(value))}
-                              contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                            />
-                            <Bar dataKey="total" name="Total pengeluaran" fill="#ef4444" radius={[0, 4, 4, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -1291,7 +1162,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                             width={110}
                           />
                           <Tooltip
-                            formatter={(value) => `${Number(value)} terjual`}
+                            formatter={(value: any) => `${Number(value)} terjual`}
                             contentStyle={{ fontSize: 12, borderRadius: 8 }}
                           />
                           <Bar dataKey="total_terjual" fill="#fe972f" radius={[0, 4, 4, 0]} />

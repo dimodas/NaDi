@@ -1,17 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
+type Varian = "hot" | "ice" | null;
+
 type Product = {
   id: string;
   nama_produk: string;
   deskripsi: string | null;
-  harga: number;
+  harga: number | null;
   kategori: "makanan" | "minuman";
   foto_url: string | null;
+  punya_varian_suhu: boolean;
+  harga_hot: number | null;
+  harga_ice: number | null;
 };
 
 type CartItem = {
   product: Product;
+  varian: Varian;
+  harga: number;
   qty: number;
 };
 
@@ -21,6 +28,7 @@ type OrderRecord = {
   status: string;
   total: number;
   catatan: string | null;
+  nama_pelanggan: string | null;
   created_at: string;
 };
 
@@ -53,6 +61,9 @@ const buatKodePesanan = () => {
   return `NDI-${acak}`;
 };
 
+const cartKey = (productId: string, varian: Varian) =>
+  `${productId}|${varian ?? "default"}`;
+
 const STATUS_LABEL: Record<string, string> = {
   baru: "Pesanan diterima",
   diproses: "Sedang diproses",
@@ -72,6 +83,7 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
     "makanan"
   );
   const [cart, setCart] = useState<Record<string, CartItem>>({});
+  const [namaPemesan, setNamaPemesan] = useState("");
   const [catatan, setCatatan] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"qris" | "tunai">("qris");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,10 +91,9 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
   const [order, setOrder] = useState<OrderRecord | null>(null);
   const [transaction, setTransaction] = useState<TransactionRecord | null>(null);
   const [orderItemsView, setOrderItemsView] = useState<
-    { nama_produk: string; jumlah: number; harga_saat_pesan: number }[]
+    { nama_produk: string; varian: Varian; jumlah: number; harga_saat_pesan: number }[]
   >([]);
 
-  // Ambil info UMKM, produk, dan hitung Best Seller.
   useEffect(() => {
     const load = async () => {
       const { data: umkm, error: umkmError } = await supabase
@@ -101,12 +112,14 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
 
       const { data: produkData } = await supabase
         .from("products")
-        .select("id, nama_produk, deskripsi, harga, kategori, foto_url")
+        .select(
+          "id, nama_produk, deskripsi, harga, kategori, foto_url, punya_varian_suhu, harga_hot, harga_ice"
+        )
         .eq("umkm_id", umkmId)
         .eq("tersedia", true)
         .order("nama_produk");
 
-      setProducts(produkData ?? []);
+      setProducts((produkData as Product[]) ?? []);
 
       const { data: itemTerjual } = await supabase
         .from("order_items")
@@ -142,31 +155,39 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
 
   const totalItemKeranjang = Object.values(cart).reduce((sum, i) => sum + i.qty, 0);
   const totalHargaKeranjang = Object.values(cart).reduce(
-    (sum, i) => sum + i.qty * i.product.harga,
+    (sum, i) => sum + i.qty * i.harga,
     0
   );
 
-  const tambahKeKeranjang = (product: Product) => {
+  const tambahKeKeranjang = (product: Product, varian: Varian) => {
+    const harga = varian === "hot"
+      ? product.harga_hot!
+      : varian === "ice"
+      ? product.harga_ice!
+      : product.harga!;
+    const key = cartKey(product.id, varian);
+
     setCart((prev) => {
-      const existing = prev[product.id];
+      const existing = prev[key];
       return {
         ...prev,
-        [product.id]: { product, qty: (existing?.qty ?? 0) + 1 },
+        [key]: { product, varian, harga, qty: (existing?.qty ?? 0) + 1 },
       };
     });
   };
 
-  const ubahQty = (productId: string, delta: number) => {
+  const ubahQty = (product: Product, varian: Varian, delta: number) => {
+    const key = cartKey(product.id, varian);
     setCart((prev) => {
-      const existing = prev[productId];
+      const existing = prev[key];
       if (!existing) return prev;
       const qtyBaru = existing.qty + delta;
       if (qtyBaru <= 0) {
         const salinan = { ...prev };
-        delete salinan[productId];
+        delete salinan[key];
         return salinan;
       }
-      return { ...prev, [productId]: { ...existing, qty: qtyBaru } };
+      return { ...prev, [key]: { ...existing, qty: qtyBaru } };
     });
   };
 
@@ -213,6 +234,7 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
           kode_pesanan: kode,
           status: "baru",
           catatan: catatan.trim() || null,
+          nama_pelanggan: namaPemesan.trim() || null,
           total: totalHargaKeranjang,
         })
         .select()
@@ -237,8 +259,9 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
       items.map((item) => ({
         order_id: orderBaru!.id,
         product_id: item.product.id,
+        varian: item.varian,
         jumlah: item.qty,
-        harga_saat_pesan: item.product.harga,
+        harga_saat_pesan: item.harga,
       }))
     );
 
@@ -268,8 +291,9 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
     setOrderItemsView(
       items.map((item) => ({
         nama_produk: item.product.nama_produk,
+        varian: item.varian,
         jumlah: item.qty,
-        harga_saat_pesan: item.product.harga,
+        harga_saat_pesan: item.harga,
       }))
     );
     setOrder(orderBaru);
@@ -284,6 +308,7 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
 
   const handlePesanLagi = () => {
     setCart({});
+    setNamaPemesan("");
     setCatatan("");
     setOrder(null);
     setTransaction(null);
@@ -330,19 +355,26 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
             <h2 className="mb-3 text-sm font-bold text-[#5c5245]">Pesanan Anda</h2>
             {Object.values(cart).map((item) => (
               <div
-                key={item.product.id}
+                key={cartKey(item.product.id, item.varian)}
                 className="mb-2 flex items-center justify-between text-sm"
               >
                 <div>
-                  <p className="text-[#3d332a]">{item.product.nama_produk}</p>
+                  <p className="text-[#3d332a]">
+                    {item.product.nama_produk}
+                    {item.varian && (
+                      <span className="ml-1 text-xs text-[#9a8a78]">
+                        ({item.varian === "hot" ? "Hot" : "Ice"})
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-[#9a8a78]">
-                    {item.qty} x {formatRupiah(item.product.harga)}
+                    {item.qty} x {formatRupiah(item.harga)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => ubahQty(item.product.id, -1)}
+                    onClick={() => ubahQty(item.product, item.varian, -1)}
                     aria-label="Kurangi jumlah"
                     className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e7d3ba] text-lg text-[#e66307]"
                   >
@@ -351,7 +383,7 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
                   <span className="w-4 text-center">{item.qty}</span>
                   <button
                     type="button"
-                    onClick={() => ubahQty(item.product.id, 1)}
+                    onClick={() => ubahQty(item.product, item.varian, 1)}
                     aria-label="Tambah jumlah"
                     className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e7d3ba] text-lg text-[#e66307]"
                   >
@@ -365,6 +397,16 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
               <span>{formatRupiah(totalHargaKeranjang)}</span>
             </div>
           </div>
+
+          <label className="mb-3 block text-sm text-[#5c5245]">
+            Nama pemesan (opsional)
+            <input
+              value={namaPemesan}
+              onChange={(e) => setNamaPemesan(e.target.value)}
+              placeholder="Contoh: Budi"
+              className="mt-1 w-full rounded-lg border border-[#e7d3ba] px-3 py-2 text-sm outline-none focus:border-[#fe972f]"
+            />
+          </label>
 
           <label className="mb-4 block text-sm text-[#5c5245]">
             Catatan tambahan (opsional)
@@ -438,13 +480,19 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
             <h2 className="mb-3 text-sm font-bold text-[#e66307]">
               Rincian Pesanan
             </h2>
-            {orderItemsView.map((item) => (
+            {orderItemsView.map((item, i) => (
               <div
-                key={item.nama_produk}
+                key={i}
                 className="mb-1 flex justify-between text-sm text-[#3d332a]"
               >
                 <span>
                   {item.jumlah}x {item.nama_produk}
+                  {item.varian && (
+                    <span className="text-xs text-[#9a8a78]">
+                      {" "}
+                      ({item.varian === "hot" ? "Hot" : "Ice"})
+                    </span>
+                  )}
                 </span>
                 <span>{formatRupiah(item.jumlah * item.harga_saat_pesan)}</span>
               </div>
@@ -460,6 +508,14 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
               Informasi Pesanan
             </h2>
             <dl className="space-y-1 text-[#5c5245]">
+              {order.nama_pelanggan && (
+                <div className="flex justify-between">
+                  <dt>Nama Pemesan</dt>
+                  <dd className="text-right font-semibold text-[#3d332a]">
+                    {order.nama_pelanggan}
+                  </dd>
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt>Catatan Tambahan</dt>
                 <dd className="text-right">{order.catatan || "-"}</dd>
@@ -565,40 +621,144 @@ export const CustomerOrderApp = ({ umkmId }: { umkmId: string }) => {
               Belum ada produk di kategori ini.
             </p>
           ) : (
-            daftarTampil.map((product) => (
-              <div
-                key={product.id}
-                className="rounded-2xl bg-white p-3 shadow-sm"
-              >
-                {product.foto_url ? (
-                  <img
-                    src={product.foto_url}
-                    alt={product.nama_produk}
-                    className="mb-2 h-20 w-full rounded-xl object-cover"
-                  />
-                ) : (
-                  <div className="mb-2 flex h-20 items-center justify-center rounded-xl bg-[#fdeee0] text-3xl">
-                    🍽️
-                  </div>
-                )}
-                <p className="text-sm font-semibold text-[#3d332a]">
-                  {product.nama_produk}
-                </p>
-                <div className="mt-1 flex items-center justify-between">
-                  <span className="text-sm text-[#e66307]">
-                    {formatRupiah(product.harga)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => tambahKeKeranjang(product)}
-                    aria-label={`Tambah ${product.nama_produk}`}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fe972f] text-lg text-white"
-                  >
-                    +
-                  </button>
+            daftarTampil.map((product) => {
+              const qtyDefault = cart[cartKey(product.id, null)]?.qty ?? 0;
+              const qtyHot = cart[cartKey(product.id, "hot")]?.qty ?? 0;
+              const qtyIce = cart[cartKey(product.id, "ice")]?.qty ?? 0;
+
+              return (
+                <div
+                  key={product.id}
+                  className="rounded-2xl bg-white p-3 shadow-sm"
+                >
+                  {product.foto_url ? (
+                    <img
+                      src={product.foto_url}
+                      alt={product.nama_produk}
+                      className="mb-2 h-20 w-full rounded-xl object-cover"
+                    />
+                  ) : (
+                    <div className="mb-2 flex h-20 items-center justify-center rounded-xl bg-[#fdeee0] text-3xl">
+                      🍽️
+                    </div>
+                  )}
+                  <p className="text-sm font-semibold text-[#3d332a]">
+                    {product.nama_produk}
+                  </p>
+
+                  {product.punya_varian_suhu ? (
+                    <div className="mt-1 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[#e66307]">
+                          Hot · {formatRupiah(product.harga_hot ?? 0)}
+                        </span>
+                        {qtyHot === 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => tambahKeKeranjang(product, "hot")}
+                            aria-label={`Tambah ${product.nama_produk} Hot`}
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-[#fe972f] text-sm text-white"
+                          >
+                            +
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => ubahQty(product, "hot", -1)}
+                              aria-label="Kurangi Hot"
+                              className="flex h-7 w-7 items-center justify-center rounded-full border border-[#e7d3ba] text-sm text-[#e66307]"
+                            >
+                              −
+                            </button>
+                            <span className="w-3 text-center text-xs">{qtyHot}</span>
+                            <button
+                              type="button"
+                              onClick={() => tambahKeKeranjang(product, "hot")}
+                              aria-label="Tambah Hot"
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-[#fe972f] text-sm text-white"
+                            >
+                              +
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[#e66307]">
+                          Ice · {formatRupiah(product.harga_ice ?? 0)}
+                        </span>
+                        {qtyIce === 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => tambahKeKeranjang(product, "ice")}
+                            aria-label={`Tambah ${product.nama_produk} Ice`}
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-[#fe972f] text-sm text-white"
+                          >
+                            +
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => ubahQty(product, "ice", -1)}
+                              aria-label="Kurangi Ice"
+                              className="flex h-7 w-7 items-center justify-center rounded-full border border-[#e7d3ba] text-sm text-[#e66307]"
+                            >
+                              −
+                            </button>
+                            <span className="w-3 text-center text-xs">{qtyIce}</span>
+                            <button
+                              type="button"
+                              onClick={() => tambahKeKeranjang(product, "ice")}
+                              aria-label="Tambah Ice"
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-[#fe972f] text-sm text-white"
+                            >
+                              +
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-1 flex items-center justify-between">
+                      <span className="text-sm text-[#e66307]">
+                        {formatRupiah(product.harga ?? 0)}
+                      </span>
+                      {qtyDefault === 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => tambahKeKeranjang(product, null)}
+                          aria-label={`Tambah ${product.nama_produk}`}
+                          className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fe972f] text-lg text-white"
+                        >
+                          +
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => ubahQty(product, null, -1)}
+                            aria-label="Kurangi jumlah"
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e7d3ba] text-sm text-[#e66307]"
+                          >
+                            −
+                          </button>
+                          <span className="w-4 text-center text-sm">{qtyDefault}</span>
+                          <button
+                            type="button"
+                            onClick={() => tambahKeKeranjang(product, null)}
+                            aria-label="Tambah jumlah"
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fe972f] text-sm text-white"
+                          >
+                            +
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
