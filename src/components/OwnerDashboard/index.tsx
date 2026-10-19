@@ -77,6 +77,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
   const [isSubmittingPengeluaran, setIsSubmittingPengeluaran] = useState(false);
 
   const [namaProduk, setNamaProduk] = useState("");
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [harga, setHarga] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
   const [kategori, setKategori] = useState<"makanan" | "minuman">("makanan");
@@ -323,7 +324,9 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
 
     setIsSubmittingProduct(true);
 
-    let fotoUrl: string | null = null;
+    let fotoUrl: string | null = editingProductId
+      ? products.find((product) => product.id === editingProductId)?.foto_url ?? null
+      : null;
     if (fotoFile) {
       const ekstensi = fotoFile.name.split(".").pop() || "jpg";
       const namaFile = `${profile.umkm_id}/${crypto.randomUUID()}.${ekstensi}`;
@@ -343,7 +346,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
       fotoUrl = publicUrlData.publicUrl;
     }
 
-    const { error } = await supabase.from("products").insert({
+    const productPayload = {
       umkm_id: profile.umkm_id,
       nama_produk: namaProduk.trim(),
       harga: punyaVarian ? null : hargaNumber,
@@ -351,17 +354,33 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
       harga_hot: punyaVarian ? hargaHotNumber : null,
       harga_ice: punyaVarian ? hargaIceNumber : null,
       deskripsi: deskripsi.trim() || null,
-      tersedia: true,
       kategori,
       foto_url: fotoUrl,
-    });
+    };
+
+    const { error } = editingProductId
+      ? await supabase
+          .from("products")
+          .update(productPayload)
+          .eq("id", editingProductId)
+          .eq("umkm_id", profile.umkm_id)
+      : await supabase.from("products").insert({ ...productPayload, tersedia: true });
 
     if (error) {
-      setFormError("Gagal menambah produk: " + error.message);
+      setFormError(
+        `${editingProductId ? "Gagal memperbarui" : "Gagal menambah"} produk: ${error.message}`
+      );
       setIsSubmittingProduct(false);
       return;
     }
 
+    resetProductForm();
+    setIsSubmittingProduct(false);
+    fetchProducts();
+  };
+
+  const resetProductForm = () => {
+    setEditingProductId(null);
     setNamaProduk("");
     setHarga("");
     setHargaHot("");
@@ -371,8 +390,21 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
     setKategori("makanan");
     setFotoFile(null);
     setFotoPreview(null);
-    setIsSubmittingProduct(false);
-    fetchProducts();
+    setFormError("");
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProductId(product.id);
+    setNamaProduk(product.nama_produk);
+    setHarga(product.harga == null ? "" : String(product.harga));
+    setDeskripsi(product.deskripsi ?? "");
+    setKategori(product.kategori);
+    setPunyaVarian(product.punya_varian_suhu);
+    setHargaHot(product.harga_hot == null ? "" : String(product.harga_hot));
+    setHargaIce(product.harga_ice == null ? "" : String(product.harga_ice));
+    setFotoFile(null);
+    setFotoPreview(product.foto_url);
+    setFormError("");
   };
 
   const handleToggleTersedia = async (product: Product) => {
@@ -597,7 +629,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
               className="h-fit rounded-xl border border-[#f0d9bd] bg-white p-5"
             >
               <h2 className="mb-4 text-base font-bold text-[#e66307]">
-                Tambah produk baru
+                {editingProductId ? "Edit produk" : "Tambah produk baru"}
               </h2>
 
               <label className="mb-3 block text-sm text-[#5c5245]">
@@ -711,8 +743,22 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                 disabled={isSubmittingProduct}
                 className="w-full rounded-lg bg-[#fe972f] py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
               >
-                {isSubmittingProduct ? "Menyimpan..." : "Tambah produk"}
+                {isSubmittingProduct
+                  ? "Menyimpan..."
+                  : editingProductId
+                  ? "Simpan perubahan"
+                  : "Tambah produk"}
               </button>
+              {editingProductId && (
+                <button
+                  type="button"
+                  onClick={resetProductForm}
+                  disabled={isSubmittingProduct}
+                  className="mt-2 w-full rounded-lg border border-[#e7d3ba] py-2 text-sm font-semibold text-[#5c5245] hover:bg-[#fff8f1] disabled:opacity-60"
+                >
+                  Batal edit
+                </button>
+              )}
             </form>
 
             <div className="hidden rounded-xl border border-[#f0d9bd] bg-white sm:block">
@@ -783,13 +829,22 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                           </button>
                         </td>
                         <td className="px-5 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteProduct(product.id)}
-                            className="text-xs font-semibold text-red-500 hover:underline"
-                          >
-                            Hapus
-                          </button>
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleEditProduct(product)}
+                              className="text-xs font-semibold text-[#e66307] hover:underline"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteProduct(product.id)}
+                              className="text-xs font-semibold text-red-500 hover:underline"
+                            >
+                              Hapus
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -849,13 +904,22 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                       >
                         {product.tersedia ? "Tersedia" : "Habis"}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteProduct(product.id)}
-                        className="text-xs font-semibold text-red-500"
-                      >
-                        Hapus
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => handleEditProduct(product)}
+                          className="text-xs font-semibold text-[#e66307]"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProduct(product.id)}
+                          className="text-xs font-semibold text-red-500"
+                        >
+                          Hapus
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
