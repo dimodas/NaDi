@@ -91,15 +91,23 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
 
   const fetchProducts = async () => {
     setLoadingProducts(true);
+
     const { data, error } = await supabase
       .from("products")
       .select(
         "id, nama_produk, deskripsi, harga, tersedia, kategori, foto_url, punya_varian_suhu, harga_hot, harga_ice"
       )
       .eq("umkm_id", profile.umkm_id)
+      .eq("diarsipkan", false)
       .order("created_at", { ascending: false });
 
-    if (!error && data) setProducts(data as Product[]);
+    if (error) {
+      console.error("Gagal mengambil produk:", error.message);
+      setProducts([]);
+    } else {
+      setProducts((data ?? []) as Product[]);
+    }
+
     setLoadingProducts(false);
   };
 
@@ -416,9 +424,47 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!confirm("Hapus produk ini?")) return;
-    await supabase.from("products").delete().eq("id", id);
-    fetchProducts();
+    const product = products.find((item) => item.id === id);
+
+    if (!product) {
+      alert("Produk tidak ditemukan. Muat ulang daftar produk lalu coba lagi.");
+      return;
+    }
+
+    const konfirmasi = confirm(
+      `Arsipkan produk "${product.nama_produk}"?
+
+` +
+        "Produk akan dihilangkan dari daftar pengelolaan dan tidak tersedia " +
+        "untuk pesanan baru. Riwayat transaksi tetap dipertahankan."
+    );
+
+    if (!konfirmasi) return;
+
+    const { data, error } = await supabase
+      .from("products")
+      .update({ diarsipkan: true, tersedia: false })
+      .eq("id", id)
+      .eq("umkm_id", profile.umkm_id)
+      .eq("diarsipkan", false)
+      .select("id");
+
+    if (error) {
+      alert("Gagal mengarsipkan produk: " + error.message);
+      return;
+    }
+
+    if (!data?.length) {
+      alert(
+        "Produk tidak berhasil diarsipkan. Periksa izin akses RLS Supabase dan pastikan produk ini milik UMKM yang sedang login."
+      );
+      await fetchProducts();
+      return;
+    }
+
+    if (editingProductId === id) resetProductForm();
+    await fetchProducts();
+    alert("Produk berhasil diarsipkan. Riwayat transaksi tetap aman.");
   };
 
   const handleUploadQris = async (event: ChangeEvent<HTMLInputElement>) => {
