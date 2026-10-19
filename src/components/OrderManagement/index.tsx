@@ -57,6 +57,19 @@ const formatRupiah = (angka: number) =>
 const formatWaktu = (iso: string) =>
   new Date(iso).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 
+// Escape teks sebelum dimasukkan ke dokumen invoice.
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (char) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[char];
+  });
+
 export const OrderManagement = ({ profile }: { profile: Profile }) => {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,6 +139,95 @@ export const OrderManagement = ({ profile }: { profile: Profile }) => {
       .update({ status_bayar: "lunas", paid_at: new Date().toISOString() })
       .eq("id", transactionId);
     fetchOrders();
+  };
+
+  // Membuka invoice yang siap dicetak/disimpan sebagai PDF melalui dialog cetak browser.
+  const handleDownloadInvoice = (order: OrderRow) => {
+    const invoiceWindow = window.open("", "_blank", "width=850,height=700");
+    if (!invoiceWindow) {
+      alert("Invoice tidak dapat dibuka. Izinkan pop-up untuk situs NaDi, lalu coba lagi.");
+      return;
+    }
+
+    const transaksi = order.transactions?.[0];
+    const itemRows = (order.order_items ?? [])
+      .map((item) => {
+        const namaProduk = escapeHtml(item.products?.nama_produk ?? "Produk");
+        const varian = item.varian
+          ? ` <span class="variant">${escapeHtml(item.varian === "hot" ? "Hot" : "Ice")}</span>`
+          : "";
+        const jumlah = Number(item.jumlah) || 0;
+        const harga = Number(item.harga_saat_pesan) || 0;
+        return `<tr>
+          <td>${namaProduk}${varian}</td>
+          <td class="number">${jumlah}</td>
+          <td class="number">${escapeHtml(formatRupiah(harga))}</td>
+          <td class="number">${escapeHtml(formatRupiah(jumlah * harga))}</td>
+        </tr>`;
+      })
+      .join("");
+
+    const statusBayar = transaksi?.status_bayar === "lunas" ? "Lunas" : "Belum bayar";
+    const catatan = order.catatan
+      ? `<div class="note"><strong>Catatan:</strong> ${escapeHtml(order.catatan)}</div>`
+      : "";
+
+    invoiceWindow.document.open();
+    invoiceWindow.document.write(`<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Invoice ${escapeHtml(order.kode_pesanan)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px; color: #3d332a; font-family: Arial, sans-serif; font-size: 13px; }
+    .invoice { max-width: 760px; margin: 0 auto; }
+    .top { display: flex; justify-content: space-between; gap: 24px; padding-bottom: 22px; border-bottom: 2px solid #fe972f; }
+    h1 { margin: 0 0 6px; color: #e66307; font-size: 27px; }
+    .muted { color: #796d60; line-height: 1.6; }
+    .invoice-label { text-align: right; }
+    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 28px; padding: 22px 0; }
+    .meta p { margin: 5px 0 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th { text-align: left; background: #fff3e7; color: #6c4a2e; }
+    th, td { padding: 11px 9px; border-bottom: 1px solid #eadfd4; }
+    .number { text-align: right; white-space: nowrap; }
+    .variant { display: inline-block; margin-left: 5px; padding: 2px 6px; border-radius: 10px; background: #fdeee0; color: #e66307; font-size: 10px; }
+    .total { margin: 20px 0 0 auto; width: min(100%, 320px); }
+    .total-row { display: flex; justify-content: space-between; gap: 18px; padding: 7px 0; }
+    .grand-total { margin-top: 4px; padding-top: 12px; border-top: 1px solid #eadfd4; color: #e66307; font-size: 18px; font-weight: bold; }
+    .note { margin-top: 22px; padding: 12px; background: #fff8f1; border-radius: 6px; }
+    .footer { margin-top: 38px; padding-top: 14px; border-top: 1px solid #eadfd4; text-align: center; color: #796d60; font-size: 11px; }
+    .print-button { display: block; margin: 0 auto 24px; border: 0; border-radius: 20px; padding: 10px 18px; color: white; background: #fe972f; cursor: pointer; }
+    @media print { body { padding: 0; } .print-button { display: none; } }
+    @media (max-width: 540px) { body { padding: 16px; } .top { flex-direction: column; } .invoice-label { text-align: left; } .meta { grid-template-columns: 1fr; } th, td { padding: 8px 5px; font-size: 11px; } }
+  </style>
+</head>
+<body>
+  <button class="print-button" onclick="window.print()">Unduh / Simpan sebagai PDF</button>
+  <main class="invoice">
+    <header class="top">
+      <div><h1>INVOICE</h1><div class="muted">Niaga Digital (NaDi)<br />Bukti transaksi pesanan</div></div>
+      <div class="invoice-label"><strong>${escapeHtml(order.kode_pesanan)}</strong><div class="muted">Tanggal: ${escapeHtml(formatWaktu(order.created_at))}</div><div class="muted">Sumber: ${escapeHtml(order.sumber === "manual" ? "Pesanan manual" : "Pesanan digital")}</div></div>
+    </header>
+    <section class="meta">
+      <div><div class="muted">Ditagihkan kepada</div><p><strong>${escapeHtml(order.nama_pelanggan || "Pelanggan")}</strong></p></div>
+      <div><div class="muted">Status pesanan</div><p><strong>${escapeHtml(STATUS_LABEL[order.status] ?? order.status)}</strong></p><div class="muted">Pembayaran: ${escapeHtml(statusBayar)}</div></div>
+      <div><div class="muted">Metode pembayaran</div><p><strong>${escapeHtml(transaksi?.metode ?? "-")}</strong></p></div>
+    </section>
+    <table>
+      <thead><tr><th>Produk</th><th class="number">Jumlah</th><th class="number">Harga satuan</th><th class="number">Subtotal</th></tr></thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+    <section class="total"><div class="total-row grand-total"><span>Total</span><span>${escapeHtml(formatRupiah(Number(order.total) || 0))}</span></div></section>
+    ${catatan}
+    <footer class="footer">Terima kasih telah bertransaksi.<br />Invoice dibuat melalui NaDi (Niaga Digital).</footer>
+  </main>
+  <script>window.onload = function () { window.setTimeout(function () { window.print(); }, 250); };</script>
+</body>
+</html>`);
+    invoiceWindow.document.close();
   };
 
   const daftarTampil = orders.filter((o) =>
@@ -218,6 +320,13 @@ export const OrderManagement = ({ profile }: { profile: Profile }) => {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadInvoice(order)}
+                    className="rounded-full border border-[#fe972f] px-4 py-1.5 text-xs font-semibold text-[#e66307] hover:bg-[#fff3e7]"
+                  >
+                    Unduh Invoice
+                  </button>
                   {transaksi && transaksi.status_bayar !== "lunas" && (
                     <button
                       type="button"
