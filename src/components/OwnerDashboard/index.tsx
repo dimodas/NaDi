@@ -57,6 +57,7 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
 
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [loadingLedger, setLoadingLedger] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [filterPeriode, setFilterPeriode] = useState<
     "hari_ini" | "minggu_ini" | "bulan_ini" | "semua" | "custom"
   >("bulan_ini");
@@ -488,6 +489,50 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
       })
     : ledger;
 
+  const tulisTanggal = (d: Date) =>
+    d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+
+  const labelPeriode = (): string => {
+    if (filterPeriode === "semua") return "Semua periode";
+    if (!rentangAktif) return "Rentang tanggal belum lengkap";
+    const nama =
+      filterPeriode === "hari_ini"
+        ? "Hari Ini"
+        : filterPeriode === "minggu_ini"
+        ? "Minggu Ini"
+        : filterPeriode === "bulan_ini"
+        ? "Bulan Ini"
+        : "Kustom";
+    return filterPeriode === "hari_ini"
+      ? `${nama} (${tulisTanggal(rentangAktif[0])})`
+      : `${nama} (${tulisTanggal(rentangAktif[0])} - ${tulisTanggal(rentangAktif[1])})`;
+  };
+
+  const handleExportExcel = async () => {
+    if (ledgerTerfilter.length === 0) return;
+    setIsExporting(true);
+    try {
+      const t = new Date();
+      const tgl = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(
+        t.getDate()
+      ).padStart(2, "0")}`;
+      const slug =
+        filterPeriode === "custom"
+          ? `${dariTanggal}_sd_${sampaiTanggal}`
+          : filterPeriode.replace("_", "-");
+      // Dimuat hanya saat tombol ditekan, supaya halaman tidak jadi lebih berat.
+      const { unduhPembukuanExcel } = await import("../../lib/exportPembukuan");
+      await unduhPembukuanExcel(
+        ledgerTerfilter,
+        labelPeriode(),
+        `Pembukuan-${slug}-${tgl}.xlsx`
+      );
+    } catch {
+      alert("Gagal membuat file Excel. Coba lagi.");
+    }
+    setIsExporting(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#fff8f1]">
       <header className="border-b border-[#f0d9bd] bg-white">
@@ -910,6 +955,14 @@ export const OwnerDashboard = ({ profile }: { profile: Profile }) => {
                         {opsi.label}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      onClick={handleExportExcel}
+                      disabled={isExporting || ledgerTerfilter.length === 0}
+                      className="ml-auto rounded-full border border-[#fe972f] px-4 py-1.5 text-xs font-semibold text-[#e66307] transition-colors hover:bg-[#fdeee0] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isExporting ? "Menyiapkan..." : "Unduh Excel"}
+                    </button>
                   </div>
 
                   {filterPeriode === "custom" && (
