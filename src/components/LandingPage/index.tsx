@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import image7 from "./image-7.png";
-import KONTEN111 from "./KONTEN-1-1-1.svg";
 import KONTEN131 from "./KONTEN-1-3-1.svg";
 
 export const LandingPage = () => {
@@ -88,12 +87,7 @@ export const LandingPage = () => {
           </span>
         </a>
         <img
-          className="absolute left-[900px] top-[100px] h-[600px] w-[400px] aspect-[1] object-cover rotate-[45eg]"
-          alt="Ilustrasi produk kopi NaDi"
-          src={KONTEN111}
-        />
-        <img
-          className="absolute left-[840px] top-[239px] h-[600px] w-[400px] aspect-[1] object-cover rotate-[8deg]"
+          className="absolute left-[840px] top-[113px] h-[550px] w-[600px] aspect-[1] object-cover rotate-[8deg] drop-shadow-[0_0_30px_rgba(254,151,47,10)] drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]"
           alt="Ilustrasi minuman kopi"
           src={KONTEN131}
         />

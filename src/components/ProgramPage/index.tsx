@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import iconQr from "./icon-qr.svg";
 import iconMenu from "./icon-menu.svg";
 import iconOrderan from "./icon-orderan.svg";
