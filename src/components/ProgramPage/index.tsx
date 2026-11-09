@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import iconQr from "./icon-qr.svg";
 import iconMenu from "./icon-menu.svg";
 import iconOrderan from "./icon-orderan.svg";
@@ -6,200 +6,112 @@ import iconDashboard from "./icon-dashboard.svg";
 import iconPembukuan from "./icon-pembukuan.svg";
 import iconAnalitik from "./icon-analitik.svg";
 
-const programCards = [
-  {
-    id: "qr-code",
-    title: "QR Code",
-    cardClass:
-      "absolute top-[286px] left-32 w-[318px] h-[328px] rounded-[20px] shadow-[0px_4px_10px_#00000080] bg-[linear-gradient(180deg,rgba(237,141,18,1)_0%,rgba(230,99,7,1)_100%)]",
-    labelClass:
-      "absolute top-[536px] left-[130px] w-[315px] [font-family:'Montserrat-Bold',Helvetica] font-bold text-white text-[41.6px] text-center tracking-[0] leading-[normal] whitespace-nowrap",
-    label: "QR Code",
-    iconSrc: iconQr,
-    iconClass: "absolute w-[140px] h-[140px] top-[50px] left-[89px] pointer-events-none",
-  },
-  {
-    id: "menu-digital",
-    title: "Menu Digital",
-    cardClass:
-      "absolute top-[286px] left-[567px] w-[319px] h-[328px] rounded-[20px] shadow-[0px_4px_10px_#00000080] bg-[linear-gradient(180deg,rgba(237,141,18,1)_0%,rgba(230,99,7,1)_100%)]",
-    labelClass:
-      "absolute top-[539px] left-[calc(50.00%_-_128px)] w-[283px] [font-family:'Montserrat-Bold',Helvetica] font-bold text-white text-[40px] text-center tracking-[0] leading-[normal] whitespace-nowrap",
-    label: "Menu Digital",
-    iconSrc: iconMenu,
-    iconClass: "absolute w-[141px] h-[140px] top-[50px] left-[89px] pointer-events-none",
-  },
-  {
-    id: "orderan",
-    title: "Orderan",
-    cardClass:
-      "absolute top-[296px] left-[1005px] w-[318px] h-[328px] rounded-[20px] shadow-[0px_4px_10px_#00000080] bg-[linear-gradient(180deg,rgba(237,141,18,1)_0%,rgba(230,99,7,1)_100%)]",
-    labelClass:
-      "absolute top-[537px] left-[calc(50.00%_+_303px)] w-[283px] [font-family:'Montserrat-Bold',Helvetica] font-bold text-white text-[40px] text-center tracking-[0] leading-[normal] whitespace-nowrap",
-    label: "Orderan",
-    iconSrc: iconOrderan,
-    iconClass: "absolute w-[140px] h-[140px] top-[50px] left-[89px] pointer-events-none",
-  },
-  {
-    id: "dashboard-operasional",
-    title: "Dashboard Operasional",
-    cardClass:
-      "absolute top-[633px] left-[129px] w-[318px] h-[328px] rounded-[20px] shadow-[0px_4px_10px_#00000080] bg-[linear-gradient(180deg,rgba(237,141,18,1)_0%,rgba(230,99,7,1)_100%)]",
-    labelClass:
-      "absolute top-[872px] left-[129px] w-[315px] [font-family:'Montserrat-Bold',Helvetica] font-bold text-white text-3xl text-center tracking-[0] leading-[normal]",
-    label: "Dashboard Operasional",
-    iconSrc: iconDashboard,
-    iconClass: "absolute w-[148px] h-[140px] top-[50px] left-[85px] pointer-events-none",
-  },
-  {
-    id: "pembukuan-digital",
-    title: "Pembukuan Digital",
-    cardClass:
-      "absolute top-[633px] left-[567px] w-[319px] h-[328px] rounded-[20px] shadow-[0px_4px_10px_#00000080] bg-[linear-gradient(180deg,rgba(237,141,18,1)_0%,rgba(230,99,7,1)_100%)]",
-    labelClass:
-      "absolute top-[872px] left-[562px] w-[315px] [font-family:'Montserrat-Bold',Helvetica] font-bold text-white text-3xl text-center tracking-[0] leading-[normal]",
-    label: "Pembukuan Digital",
-    iconSrc: iconPembukuan,
-    iconClass: "absolute w-[199px] h-[140px] top-[55px] left-[60px] pointer-events-none",
-  },
-  {
-    id: "analitik-usaha",
-    title: "Analitik Usaha",
-    cardClass:
-      "absolute top-[643px] left-[1006px] w-[318px] h-[328px] rounded-[20px] shadow-[0px_4px_10px_#00000080] bg-[linear-gradient(180deg,rgba(237,141,18,1)_0%,rgba(230,99,7,1)_100%)]",
-    labelClass:
-      "absolute top-[872px] left-[1007px] w-[315px] [font-family:'Montserrat-Bold',Helvetica] font-bold text-white text-3xl text-center tracking-[0] leading-[normal]",
-    label: "Analitik Usaha",
-    iconSrc: iconAnalitik,
-    iconClass: "absolute w-[145px] h-[140px] top-[50px] left-[87px] pointer-events-none",
-  },
+interface ProgramItem {
+  id: string;
+  title: string;
+  iconSrc: string;
+  description: string;
+}
+
+const programData: ProgramItem[] = [
+  { id: "qr-code", title: "QR Code", iconSrc: iconQr, description: "Memudahkan pelanggan mengakses menu secara langsung melalui pemindaian QR Code di meja atau area pemesanan tanpa perlu antre." },
+  { id: "menu-digital", title: "Menu Digital", iconSrc: iconMenu, description: "Katalog produk interaktif yang dapat diperbarui secara real-time, lengkap dengan varian rasa, harga, dan status ketersediaan stok." },
+  { id: "orderan", title: "Orderan", iconSrc: iconOrderan, description: "Sistem penerimaan pesanan masuk otomatis yang meminimalkan risiko kesalahan pencatatan pesanan dari pelanggan." },
+  { id: "dashboard-operasional", title: "Dashboard Operasional", iconSrc: iconDashboard, description: "Pantau seluruh aktivitas transaksi harian, status pesanan aktif, dan performa jam sibuk usaha kopi Anda dalam satu tampilan." },
+  { id: "pembukuan-digital", title: "Pembukuan Digital", iconSrc: iconPembukuan, description: "Pencatatan otomatis arus kas masuk dan keluar yang terintegrasi, menggantikan buku kas manual dengan aman dan rapi." },
+  { id: "analitik-usaha", title: "Analitik Usaha", iconSrc: iconAnalitik, description: "Laporan statistik penjualan harian hingga bulanan untuk membantu Anda menentukan strategi bisnis dan produk terlaris." },
 ];
 
-export const ProgramPage = () => {
-  const [loginOpen, setLoginOpen] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
-  const sectionRef = useRef<HTMLDivElement>(null);
+export function ProgramPage() {
+  const [activeCardId, setActiveCardId] = useState<string | null>("qr-code");
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    const node = sectionRef.current;
-    if (!node) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.2 }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  const handleProgramSelect = (programId: string) => {
-    window.location.hash = programId;
+  // Perbaikan TS7006: parameter 'id' diberi tipe string
+  const handleCardClick = (id: string) => {
+    setActiveCardId((prev) => (prev === id ? null : id));
   };
 
-  return (
-    <div className="bg-white w-full min-w-[1440px] h-[1024px] relative overflow-hidden">
-      <main id="program">
-        <h1 className="absolute top-52 left-[calc(50.00%_-_471px)] w-[942px] h-[37px] [font-family:'Montserrat-Regular',Helvetica] font-normal text-[#fe972f] text-[45px] text-center tracking-[0] leading-[normal] whitespace-nowrap">
-          <span className="[font-family:'Montserrat-Regular',Helvetica] font-normal text-[#fe972f] text-[45px] tracking-[0]">
-            NaDi{" "}
-          </span>
-          <strong className="[font-family:'Montserrat-Bold',Helvetica] font-bold">
-            membantu
-          </strong>
-          <span className="[font-family:'Montserrat-Regular',Helvetica] font-normal text-[#fe972f] text-[45px] tracking-[0]">
-            {" "}
-            melalui{" "}
-          </span>
-          <strong className="[font-family:'Montserrat-Bold',Helvetica] font-bold">
-            sistem digital
-          </strong>
-        </h1>
-        <section aria-label="Program digital NaDi" ref={sectionRef}>
-          {programCards.map((card) => (
-            <button
-              key={card.id}
-              type="button"
-              className={`${card.cardClass} transition-transform duration-700 ease-out ${
-                isVisible ? "scale-100" : "scale-125"
-              } cursor-pointer focus-visible:outline focus-visible:outline-4 focus-visible:outline-[#fe972f] focus-visible:outline-offset-4`}
-              onClick={() => handleProgramSelect(card.id)}
-              aria-label={`Buka program ${card.title}`}
-            >
-              <img
-                src={card.iconSrc}
-                alt=""
-                aria-hidden="true"
-                className={card.iconClass}
-              />
-            </button>
-          ))}
+  const scroll = (direction: "left" | "right") => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = direction === "left" ? -300 : 300;
+      scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
 
-          {programCards.map((card) => (
-            <div
-              key={`${card.id}-label`}
-              className={`${card.labelClass} pointer-events-none`}
-              aria-hidden="true"
-            >
-              {card.label === "Pembukuan Digital" ? (
-                <>
-                  Pembukuan
-                  <br />
-                  Digital
-                </>
-              ) : card.label === "Analitik Usaha" ? (
-                <>
-                  Analitik
-                  <br />
-                  Usaha
-                </>
-              ) : (
-                card.label
-              )}
-            </div>
-          ))}
-        </section>
-        <section id="mitra" className="sr-only" aria-label="Mitra">
-          Mitra NaDi
-        </section>
-      </main>
-      {loginOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 min-w-[1440px]"
-          role="presentation"
-          onMouseDown={() => setLoginOpen(false)}
-        >
-          <section
-            className="w-[420px] rounded-[20px] bg-white p-8 shadow-[0px_4px_20px_#00000080]"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="login-dialog-title"
-            onMouseDown={(event) => event.stopPropagation()}
+  const activeCard = programData.find((item) => item.id === activeCardId);
+
+  return (
+    <div className="bg-white w-full py-10 overflow-hidden">
+      <main id="program" className="max-w-[1200px] mx-auto px-6">
+        <h2 className="text-center text-3xl sm:text-4xl text-[#fe972f] font-normal mb-8 [font-family:'Montserrat-Regular',Helvetica]">
+          NaDi <strong className="font-bold">membantu</strong> melalui <strong className="font-bold">sistem digital</strong>
+        </h2>
+
+        {/* Carousel Container Futuristik */}
+        <div className="relative group my-4">
+          {/* Tombol Scroll Kiri */}
+          <button
+            onClick={() => scroll("left")}
+            className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/90 backdrop-blur-md shadow-xl border border-orange-200 text-[#e66307] flex items-center justify-center font-bold text-xl hover:scale-110 active:scale-95 transition-all"
+            aria-label="Scroll Kiri"
           >
-            <h2
-              id="login-dialog-title"
-              className="[font-family:'Montserrat-Bold',Helvetica] text-2xl font-bold text-[#e66307]"
-            >
-              Daftar atau Masuk
-            </h2>
-            <p className="mt-3 [font-family:'Montserrat-Regular',Helvetica] text-base text-[#e66307]">
-              Silakan masuk atau daftar untuk melanjutkan.
-            </p>
-            <button
-              className="mt-6 rounded-[20px] bg-[#fe972f] px-6 py-3 [font-family:'Montserrat-Bold',Helvetica] font-bold text-white"
-              type="button"
-              onClick={() => setLoginOpen(false)}
-            >
-              Tutup
-            </button>
-          </section>
+            ‹
+          </button>
+
+          {/* Track Horizontal Scroll */}
+          <div
+            ref={scrollContainerRef}
+            className="flex items-center gap-6 overflow-x-auto py-6 px-4 scrollbar-none scroll-smooth snap-x snap-mandatory"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          >
+            {programData.map((card) => {
+              const isActive = activeCardId === card.id;
+              return (
+                <button
+                  key={card.id}
+                  onClick={() => handleCardClick(card.id)}
+                  className={`snap-center shrink-0 group/card relative flex flex-col items-center justify-center w-[210px] h-[210px] p-4 rounded-[24px] transition-all duration-500 ease-out cursor-pointer ${
+                    isActive
+                      ? "bg-[linear-gradient(135deg,#ed8e12_0%,#c5500f_100%)] shadow-[0_12px_30px_rgba(197,80,15,0.45)] scale-105 ring-4 ring-[#fe972f]/40 -translate-y-2"
+                      : "bg-gradient-to-b from-[#ffb469] to-[#e66307] opacity-80 hover:opacity-100 hover:scale-100 hover:shadow-lg"
+                  }`}
+                >
+                  <div className="w-20 h-20 flex items-center justify-center transition-transform duration-500 group-hover/card:scale-110">
+                    <img src={card.iconSrc} alt={card.title} className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-md" />
+                  </div>
+                  <span className="mt-3 font-bold text-lg text-white text-center [font-family:'Montserrat-Bold',Helvetica] leading-tight">
+                    {card.title}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tombol Scroll Kanan */}
+          <button
+            onClick={() => scroll("right")}
+            className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/90 backdrop-blur-md shadow-xl border border-orange-200 text-[#e66307] flex items-center justify-center font-bold text-xl hover:scale-110 active:scale-95 transition-all"
+            aria-label="Scroll Kanan"
+          >
+            ›
+          </button>
         </div>
-      )}
+
+        {/* Dynamic Futuristic Detail Panel */}
+        {activeCard && (
+          <div className="mt-4 p-6 rounded-[24px] bg-gradient-to-r from-orange-50/80 via-white to-orange-50/80 border border-orange-200/60 shadow-[0_8px_25px_rgba(0,0,0,0.06)] backdrop-blur-md transition-all duration-300">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="w-2.5 h-7 bg-[#c5500f] rounded-full"></span>
+              <h3 className="text-2xl font-bold text-[#c5500f] [font-family:'Montserrat-Bold',Helvetica]">
+                {activeCard.title}
+              </h3>
+            </div>
+            <p className="text-gray-700 text-base leading-relaxed pl-5 [font-family:'Montserrat-Regular',Helvetica]">
+              {activeCard.description}
+            </p>
+          </div>
+        )}
+      </main>
     </div>
   );
-};
+}
