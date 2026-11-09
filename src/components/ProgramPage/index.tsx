@@ -26,7 +26,6 @@ export function ProgramPage() {
   const [activeCardId, setActiveCardId] = useState<string | null>("qr-code");
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Perbaikan TS7006: parameter 'id' diberi tipe string
   const handleCardClick = (id: string) => {
     setActiveCardId((prev) => (prev === id ? null : id));
   };
@@ -41,76 +40,96 @@ export function ProgramPage() {
   const activeCard = programData.find((item) => item.id === activeCardId);
 
   return (
-    <div className="bg-white w-full py-10 overflow-hidden">
+    <div className="bg-white w-full py-12">
       <main id="program" className="max-w-[1200px] mx-auto px-6">
-        <h2 className="text-center text-3xl sm:text-4xl text-[#fe972f] font-normal mb-8 [font-family:'Montserrat-Regular',Helvetica]">
+        <h2 className="text-center text-3xl sm:text-5xl text-[#fe972f] font-normal mb-8 [font-family:'Montserrat-Regular',Helvetica]">
           NaDi <strong className="font-bold">membantu</strong> melalui <strong className="font-bold">sistem digital</strong>
         </h2>
 
-        {/* Carousel Container Futuristik */}
-        <div className="relative group my-4">
-          {/* Tombol Scroll Kiri */}
-          <button
-            onClick={() => scroll("left")}
-            className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/90 backdrop-blur-md shadow-xl border border-orange-200 text-[#e66307] flex items-center justify-center font-bold text-xl hover:scale-110 active:scale-95 transition-all"
-            aria-label="Scroll Kiri"
-          >
-            ‹
-          </button>
-
-          {/* Track Horizontal Scroll */}
-          <div
-            ref={scrollContainerRef}
-            className="flex items-center gap-6 overflow-x-auto py-6 px-4 scrollbar-none scroll-smooth snap-x snap-mandatory"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-          >
-            {programData.map((card) => {
-              const isActive = activeCardId === card.id;
-              return (
-                <button
-                  key={card.id}
-                  onClick={() => handleCardClick(card.id)}
-                  className={`snap-center shrink-0 group/card relative flex flex-col items-center justify-center w-[210px] h-[210px] p-4 rounded-[24px] transition-all duration-500 ease-out cursor-pointer ${
-                    isActive
-                      ? "bg-[linear-gradient(135deg,#ed8e12_0%,#c5500f_100%)] shadow-[0_12px_30px_rgba(197,80,15,0.45)] scale-105 ring-4 ring-[#fe972f]/40 -translate-y-2"
-                      : "bg-gradient-to-b from-[#ffb469] to-[#e66307] opacity-80 hover:opacity-100 hover:scale-100 hover:shadow-lg"
-                  }`}
-                >
-                  <div className="w-20 h-20 flex items-center justify-center transition-transform duration-500 group-hover/card:scale-110">
-                    <img src={card.iconSrc} alt={card.title} className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-md" />
-                  </div>
-                  <span className="mt-3 font-bold text-lg text-white text-center [font-family:'Montserrat-Bold',Helvetica] leading-tight">
-                    {card.title}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Tombol Scroll Kanan */}
-          <button
-            onClick={() => scroll("right")}
-            className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/90 backdrop-blur-md shadow-xl border border-orange-200 text-[#e66307] flex items-center justify-center font-bold text-xl hover:scale-110 active:scale-95 transition-all"
-            aria-label="Scroll Kanan"
-          >
-            ›
-          </button>
+        {/* --- TAMPILAN MOBILE: Card Menurun Vertikal (Tampil di HP) --- */}
+        <div className="flex flex-col gap-4 md:hidden">
+          {programData.map((item) => (
+            <div
+              key={item.id}
+              className="p-5 rounded-[20px] bg-gradient-to-r from-orange-50 via-white to-orange-50 border border-orange-200/70 shadow-sm flex items-start gap-4"
+            >
+              <div className="w-14 h-14 shrink-0 bg-[#e66307] p-2.5 rounded-2xl flex items-center justify-center shadow-md">
+                <img src={item.iconSrc} alt={item.title} className="w-full h-full object-contain filter invert brightness-200" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-[#c5500f] mb-1 [font-family:'Montserrat-Bold',Helvetica]">
+                  {item.title}
+                </h3>
+                <p className="text-gray-700 text-sm leading-relaxed [font-family:'Montserrat-Regular',Helvetica]">
+                  {item.description}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Dynamic Futuristic Detail Panel */}
-        {activeCard && (
-          <div className="mt-4 p-6 rounded-[24px] bg-gradient-to-r from-orange-50/80 via-white to-orange-50/80 border border-orange-200/60 shadow-[0_8px_25px_rgba(0,0,0,0.06)] backdrop-blur-md transition-all duration-300">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="w-2.5 h-7 bg-[#c5500f] rounded-full"></span>
-              <h3 className="text-2xl font-bold text-[#c5500f] [font-family:'Montserrat-Bold',Helvetica]">
-                {activeCard.title}
-              </h3>
+        {/* --- TAMPILAN DESKTOP: Carousel Horizontal (Tampil di Layar Besar) --- */}
+        <div className="hidden md:block">
+          <div className="relative group my-4">
+            <button
+              onClick={() => scroll("left")}
+              className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/90 backdrop-blur-md shadow-xl border border-orange-200 text-[#e66307] flex items-center justify-center font-bold text-xl hover:scale-110 active:scale-95 transition-all"
+              aria-label="Scroll Kiri"
+            >
+              ‹
+            </button>
+
+            <div
+              ref={scrollContainerRef}
+              className="flex items-center gap-6 overflow-x-auto py-6 px-4 scrollbar-none scroll-smooth snap-x snap-mandatory"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              {programData.map((card) => {
+                const isActive = activeCardId === card.id;
+                return (
+                  <button
+                    key={card.id}
+                    onClick={() => handleCardClick(card.id)}
+                    className={`snap-center shrink-0 group/card relative flex flex-col items-center justify-center w-[210px] h-[210px] p-4 rounded-[24px] transition-all duration-500 ease-out cursor-pointer ${
+                      isActive
+                        ? "bg-[linear-gradient(135deg,#ed8e12_0%,#c5500f_100%)] shadow-[0_12px_30px_rgba(197,80,15,0.45)] scale-105 ring-4 ring-[#fe972f]/40 -translate-y-2"
+                        : "bg-gradient-to-b from-[#ffb469] to-[#e66307] opacity-80 hover:opacity-100 hover:scale-100 hover:shadow-lg"
+                    }`}
+                  >
+                    <div className="w-20 h-20 flex items-center justify-center transition-transform duration-500 group-hover/card:scale-110">
+                      <img src={card.iconSrc} alt={card.title} className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-md" />
+                    </div>
+                    <span className="mt-3 font-bold text-lg text-white text-center [font-family:'Montserrat-Bold',Helvetica] leading-tight">
+                      {card.title}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <p className="text-gray-700 text-base leading-relaxed pl-5 [font-family:'Montserrat-Regular',Helvetica]">
-              {activeCard.description}
-            </p>
+
+            <button
+              onClick={() => scroll("right")}
+              className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/90 backdrop-blur-md shadow-xl border border-orange-200 text-[#e66307] flex items-center justify-center font-bold text-xl hover:scale-110 active:scale-95 transition-all"
+              aria-label="Scroll Kanan"
+            >
+              ›
+            </button>
           </div>
-        )}
+
+          {activeCard && (
+            <div className="mt-4 p-6 rounded-[24px] bg-gradient-to-r from-orange-50/80 via-white to-orange-50/80 border border-orange-200/60 shadow-[0_8px_25px_rgba(0,0,0,0.06)] backdrop-blur-md transition-all duration-300">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="w-2.5 h-7 bg-[#c5500f] rounded-full"></span>
+                <h3 className="text-2xl font-bold text-[#c5500f] [font-family:'Montserrat-Bold',Helvetica]">
+                  {activeCard.title}
+                </h3>
+              </div>
+              <p className="text-gray-700 text-base leading-relaxed pl-5 [font-family:'Montserrat-Regular',Helvetica]">
+                {activeCard.description}
+              </p>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
