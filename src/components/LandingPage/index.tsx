@@ -92,13 +92,11 @@ export const LandingPage = () => {
           alt="Ilustrasi produk kopi NaDi"
           src={KONTEN111}
         />
-        {/* 
         <img
           className="absolute left-[840px] top-[239px] h-[600px] w-[400px] aspect-[1] object-cover rotate-[8deg]"
           alt="Ilustrasi minuman kopi"
           src={KONTEN131}
         />
-        */} 
       </section>
       <div
         aria-hidden="true"
