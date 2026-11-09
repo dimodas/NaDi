@@ -4,11 +4,10 @@ import KONTEN131 from "./KONTEN-1-3-1.svg";
 
 export const LandingPage = () => {
   const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 100);
+      setScrolled(window.scrollY > 600);
     };
 
     window.addEventListener("scroll", handleScroll);
@@ -17,151 +16,85 @@ export const LandingPage = () => {
   }, []);
 
   return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-[linear-gradient(180deg,rgba(237,142,18,1)_0%,rgba(197,80,15,1)_100%)]">
-      {/* --- HEADER NAVBAR --- */}
+    <main className="relative min-h-[1024px] min-w-[1440px] w-full overflow-hidden bg-[linear-gradient(180deg,rgba(237,142,18,1)_0%,rgba(197,80,15,1)_100%)]">
       <header
         aria-label="Navigasi utama"
-        className={`fixed top-0 left-0 z-50 w-full transition-all duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 z-50 h-[120px] w-full transition-colors duration-300 ease-in-out ${
           scrolled
-            ? "bg-[linear-gradient(180deg,rgba(237,142,18,1)_0%,rgba(197,80,15,1)_100%)] shadow-md py-3"
-            : "bg-transparent py-5"
+            ? "bg-[linear-gradient(180deg,rgba(237,142,18,1)_0%,rgba(197,80,15,1)_100%)] shadow-[0px_4px_10px_#00000040]"
+            : "bg-transparent"
         }`}
       >
-        <div className="max-w-[1240px] mx-auto px-6 flex items-center justify-between">
-          {/* Logo */}
-          <a href="/" aria-label="NaDi beranda" className="flex items-center">
+        <div className="relative h-[140px] w-[1440px] mx-auto">
+          <a
+            href="/"
+            aria-label="NaDi beranda"
+            className="absolute left-[59px] top-[28px] block h-[66px] w-[69px]"
+          >
             <img
-              className="h-12 w-auto md:h-16 object-contain"
+              className="h-[66px] w-[69px] aspect-[1.04] object-cover"
               alt="Logo NaDi"
               src={image7}
             />
           </a>
-
-          {/* Desktop Nav Items */}
-          <nav aria-label="Menu utama" className="hidden md:flex items-center gap-8 lg:gap-12">
-            <a
-              href="#program"
-              className="font-bold text-lg lg:text-2xl text-white hover:opacity-80 transition-opacity [font-family:'Montserrat-Bold',Helvetica]"
-            >
-              Program
-            </a>
-            <a
-              href="#tentang-kami"
-              className="font-bold text-lg lg:text-2xl text-white hover:opacity-80 transition-opacity [font-family:'Montserrat-Bold',Helvetica]"
-            >
-              Tentang Kami
-            </a>
-            <a
-              href="#kontak"
-              className="font-bold text-lg lg:text-2xl text-white hover:opacity-80 transition-opacity [font-family:'Montserrat-Bold',Helvetica]"
-            >
-              Kontak
-            </a>
-          </nav>
-
-          {/* Desktop Tombol Masuk */}
-          <a
-            href="?login=1"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden md:flex items-center justify-center px-7 py-2 rounded-[20px] bg-white font-bold text-xl lg:text-2xl text-[#fe972f] hover:bg-orange-50 transition-all shadow-md [font-family:'Montserrat-Bold',Helvetica]"
-          >
-            Masuk
-          </a>
-
-          {/* Mobile Hamburger Button */}
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="md:hidden text-white focus:outline-none p-2"
-            aria-label="Buka Menu"
-          >
-            <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24">
-              {menuOpen ? (
-                <path fillRule="evenodd" clipRule="evenodd" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              ) : (
-                <path fillRule="evenodd" clipRule="evenodd" d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
-              )}
-            </svg>
-          </button>
-        </div>
-
-        {/* Mobile Dropdown Menu */}
-        {menuOpen && (
-          <div className="md:hidden bg-[#c5500f] border-t border-orange-400 px-6 py-4 flex flex-col gap-4 text-center">
-            <a
-              href="#program"
-              onClick={() => setMenuOpen(false)}
-              className="font-bold text-xl text-white py-2"
-            >
-              Program
-            </a>
-            <a
-              href="#tentang-kami"
-              onClick={() => setMenuOpen(false)}
-              className="font-bold text-xl text-white py-2"
-            >
-              Tentang Kami
-            </a>
-            <a
-              href="#kontak"
-              onClick={() => setMenuOpen(false)}
-              className="font-bold text-xl text-white py-2"
-            >
-              Kontak
-            </a>
+          <nav aria-label="Menu utama">
+            <div className="absolute left-[520px] top-[38px] flex items-center gap-10">
+              <a
+                href="#program"
+                className="whitespace-nowrap text-center font-bold text-3xl leading-[normal] tracking-[0] text-white [font-family:'Montserrat-Bold',Helvetica] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#e68b13]"
+              >
+                Program
+              </a>
+              <a
+                href="#tentang-kami"
+                className="whitespace-nowrap text-center font-bold text-3xl leading-[normal] tracking-[0] text-white [font-family:'Montserrat-Bold',Helvetica] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#e68b13]"
+              >
+                Tentang Kami
+              </a>
+              <a
+                href="#kontak"
+                className="whitespace-nowrap text-center font-bold text-3xl leading-[normal] tracking-[0] text-white [font-family:'Montserrat-Bold',Helvetica] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#e68b13]"
+              >
+                Kontak
+              </a>
+            </div>
             <a
               href="?login=1"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-3 rounded-[16px] bg-white font-bold text-xl text-[#fe972f] text-center"
+              className="absolute left-[1115px] top-9 flex h-11 w-[230px] items-center justify-center rounded-[20px] bg-white font-bold text-[28px] leading-[normal] tracking-[0] text-[#fe972f] [font-family:'Montserrat-Bold',Helvetica] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#e68b13]"
             >
               Masuk
             </a>
-          </div>
-        )}
-      </header>
-
-      {/* --- HERO SECTION --- */}
-      <section aria-labelledby="hero-title" className="pt-28 md:pt-36 pb-20 px-6 max-w-[1240px] mx-auto">
-        <div className="flex flex-col-reverse md:flex-row items-center justify-between gap-8 md:gap-12">
-          {/* Teks Kiri */}
-          <div className="w-full md:w-7/12 flex flex-col items-center md:items-start text-center md:text-left">
-            <h1
-              id="hero-title"
-              className="font-bold text-4xl sm:text-6xl lg:text-7xl text-white [font-family:'Montserrat-Bold',Helvetica] leading-tight mb-4"
-            >
-              Niaga Digital
-            </h1>
-
-            <p className="font-normal text-base sm:text-lg lg:text-xl text-white/90 [font-family:'Montserrat-Regular',Helvetica] leading-relaxed mb-8">
-              NaDi hadir sebagai solusi digital untuk membantu UMKM kopi jalanan di Kota Gorontalo dalam mengelola kegiatan operasional usaha dengan lebih mudah, praktis, dan terorganisasi. Melalui satu sistem terpadu, NaDi mengintegrasikan pengelolaan pesanan, produk, transaksi pembayaran, hingga pencatatan dan laporan keuangan. Dengan mengoptimalkan pemanfaatan teknologi digital, NaDi membantu pelaku UMKM mengurangi ketergantungan pada proses pencatatan manual, meminimalkan kesalahan operasional, serta memudahkan pemantauan aktivitas usaha. Kini, pengelolaan usaha dapat dilakukan secara lebih efisien sehingga pelaku UMKM dapat lebih fokus memberikan pelayanan terbaik kepada pelanggan dan mengembangkan bisnisnya.
-            </p>
-
-            <a
-              href="#program"
-              className="inline-flex items-center justify-center px-6 py-3 sm:px-8 sm:py-4 rounded-[20px] bg-white shadow-lg hover:scale-105 transition-transform duration-300 group"
-            >
-              <span className="font-semibold text-lg sm:text-2xl text-[#fe972f] [font-family:'Montserrat-SemiBold',Helvetica]">
-                Kenal lebih jauh program NaDi
-              </span>
-            </a>
-          </div>
-
-          {/* Gambar Kanan */}
-          <div className="w-full md:w-5/12 flex justify-center">
-            <img
-              className="w-[280px] sm:w-[380px] md:w-[450px] lg:w-[520px] aspect-square object-contain rotate-[6deg] drop-shadow-[0_0_35px_rgba(254,151,47,0.8)] drop-shadow-[0_15px_15px_rgba(0,0,0,0.35)]"
-              alt="Ilustrasi minuman kopi"
-              src={KONTEN131}
-            />
-          </div>
+          </nav>
         </div>
+      </header>
+      <section aria-labelledby="hero-title">
+        <div className="absolute left-[54px] top-[150px] flex h-[102px] w-[660px] items-center font-bold text-[84.8px] leading-[normal] tracking-[0] text-white [font-family:'Montserrat-Bold',Helvetica]">
+          <h1 id="hero-title" className="m-0 font-inherit">
+            Niaga Digital
+          </h1>
+        </div>
+        <p className="absolute left-[59px] top-[295px] flex h-[193px] w-[767px] items-center font-normal text-[20px] leading-[normal] tracking-[0] text-white [font-family:'Montserrat-Regular',Helvetica]">
+          NaDi hadir sebagai solusi digital untuk membantu UMKM kopi jalanan di Kota Gorontalo dalam mengelola kegiatan operasional usaha dengan lebih mudah, praktis, dan terorganisasi. Melalui satu sistem terpadu, NaDi mengintegrasikan pengelolaan pesanan, produk, transaksi pembayaran, hingga pencatatan dan laporan keuangan. Dengan mengoptimalkan pemanfaatan teknologi digital, NaDi membantu pelaku UMKM mengurangi ketergantungan pada proses pencatatan manual, meminimalkan kesalahan operasional, serta memudahkan pemantauan aktivitas usaha. Kini, pengelolaan usaha dapat dilakukan secara lebih efisien sehingga pelaku UMKM dapat lebih fokus memberikan pelayanan terbaik kepada pelanggan dan mengembangkan bisnisnya.
+        </p>
+        <a
+          href="#program"
+          className="absolute left-[55px] top-[545px] flex h-11 w-[479px] items-center rounded-[20px] bg-white pl-[19px] shadow-[4px_7px_20px_#00000080] transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-[0px_6px_15px_#000000a0] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#c5500f]"
+        >
+          <span className="flex h-[37px] w-[480px] items-center font-semibold text-[28px] leading-[normal] tracking-[0] text-[#fe972f] [font-family:'Montserrat-SemiBold',Helvetica]">
+            Kenal lebih jauh program NaDi
+          </span>
+        </a>
+        <img
+          className="absolute left-[840px] top-[113px] h-[550px] w-[600px] aspect-[1] object-cover rotate-[8deg] drop-shadow-[0_0_35px_rgba(254,151,47,0.8)] drop-shadow-[0_15px_15px_rgba(0,0,0,0.35)]"
+          alt="Ilustrasi minuman kopi"
+          src={KONTEN131}
+        />
       </section>
-
-      {/* --- LENGKUNGAN BOTTOM (DEKORASI SEAMLESS) --- */}
       <div
         aria-hidden="true"
-        className="w-[120%] -ml-[10%] h-16 md:h-28 bg-white rounded-t-[50%] mt-auto"
+        className="absolute left-[calc(50.00%_-_800px)] top-[923px] h-[146px] w-[1600px] rounded-[769.5px/73px] bg-white"
       />
     </main>
   );
